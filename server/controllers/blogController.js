@@ -1,0 +1,98 @@
+import blogModel from "../models/Blog.js";
+import imagekit from "../configs/imageKit.js";
+import fs from 'fs';
+
+export const addBlog = async (req, res) => {
+    try {
+        const { title, subtitle, description, category, isPublished } = JSON.parse(req.body.blog);
+        const imageFile = req.file;
+
+        if (!title || !description || !category || !imageFile) {
+            return res.json({ success: false, message: "Missing required fields" });
+        }
+
+        // Tải ảnh lên ImageKit 
+        const fileBuffer = fs.readFileSync(imageFile.path);
+        const response = await imagekit.upload({
+            file: fileBuffer,
+            fileName: imageFile.originalname,
+            folder: "/blogs"
+        });
+
+        // Tối ưu hóa ảnh thông qua URL Transformation (Nén auto, định dạng WebP, rộng 1280px) [10-12]
+        const optimizedImageURL = imagekit.url({
+            path: response.filePath,
+            transformation: [
+                { quality: "auto" },
+                { format: "webp" },
+                { width: "1280" }
+            ]
+        });
+
+        // Lưu vào MongoDB [5]
+        await blogModel.create({
+            title, subtitle, description, category, isPublished,
+            image: optimizedImageURL
+        });
+
+        res.json({ success: true, message: "Blog added successfully" }); [5]
+    } catch (error) {
+        res.json({ success: false, message: error.message }); [13]
+    }
+};
+// 1. Lấy danh sách tất cả bài viết đã xuất bản (dành cho người dùng)
+export const getAllBlogs = async (req, res) => {
+    try {
+        const blogs = await blogModel.find({ isPublished: true }); // Chỉ lấy bài viết có isPublished là true [1]
+        res.json({ success: true, blogs });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// 2. Lấy chi tiết một bài viết theo ID
+export const getBlogById = async (req, res) => {
+    try {
+        const { blogId } = req.params; // Lấy ID từ URL parameter [5]
+        const blog = await blogModel.findById(blogId);
+        
+        if (!blog) {
+            return res.json({ success: false, message: "Blog not found" });
+        }
+        res.json({ success: true, blog });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// 3. Xóa bài viết theo ID (Bảo mật: Chỉ Admin)
+export const deleteBlogById = async (req, res) => {
+    try {
+        const { id } = req.body; // Nhận ID từ body của yêu cầu [3]
+        
+        await blogModel.findByIdAndDelete(id);
+        
+        // Xóa tất cả bình luận liên quan đến bài viết này [4]
+        await commentModel.deleteMany({ blog: id });
+        
+        res.json({ success: true, message: "blog deleted successfully" });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// 4. Cập nhật trạng thái Xuất bản/Chưa xuất bản (Toggle Publish)
+export const togglePublish = async (req, res) => {
+    try {
+        const { id } = req.body;
+        const blog = await blogModel.findById(id);
+        
+        // Đảo ngược trạng thái isPublished [6, 7]
+        blog.isPublished = !blog.isPublished;
+        await blog.save();
+        
+        res.json({ success: true, message: "blog status updated" });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+};
