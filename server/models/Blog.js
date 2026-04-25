@@ -9,5 +9,5 @@ const blogSchema = new mongoose.Schema({
     isPublished: { type: Boolean, default: false },
 }, { timestamps: true }); // Tự động lưu ngày tạo và cập nhật [2, 3]
 
-const blogModel = mongoose.model('blogModel', blogSchema);
-export default blogModel;
+const Blog = mongoose.model('Blog', blogSchema);
+export default Blog;

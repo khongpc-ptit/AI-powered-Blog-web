@@ -96,3 +96,24 @@ export const togglePublish = async (req, res) => {
         res.json({ success: false, message: error.message });
     }
 };
+
+export const addComment = async (req, res) => {
+    try {
+        const { blog, name, email, content } = req.body;  
+        await Comment.create({ blog, name, content }); // Lưu bình luận với tham chiếu đến Blog 
+        res.json({ success: true, message: "Comment added for review" });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }
+};
+
+export const getBlogComments = async (req, res) => {
+        console.log("Chay toi day roi ne")
+    try {
+        const { blogId } = req.body;  
+        const comments = await Comment.find({ blog: blogId, isApproved: true }).sort({ createdAt: -1 }); // Chỉ lấy bình luận đã được duyệt
+        res.json({ success: true, comments });
+    } catch (error) {
+        res.json({ success: false, message: error.message });
+    }  
+}; 
