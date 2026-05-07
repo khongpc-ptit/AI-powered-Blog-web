@@ -1,4 +1,4 @@
-import blogModel from "../models/Blog.js";
+import Blog from "../models/Blog.js";
 import imagekit from "../configs/imageKit.js";
 import fs from 'fs';
 
@@ -30,7 +30,7 @@ export const addBlog = async (req, res) => {
         });
 
         // Lưu vào MongoDB [5]
-        await blogModel.create({
+        await Blog.create({
             title, subtitle, description, category, isPublished,
             image: optimizedImageURL
         });
@@ -40,21 +40,21 @@ export const addBlog = async (req, res) => {
         res.json({ success: false, message: error.message }); [13]
     }
 };
-// 1. Lấy danh sách tất cả bài viết đã xuất bản (dành cho người dùng)
+// Lấy danh sách tất cả bài viết đã xuất bản (dành cho người dùng)
 export const getAllBlogs = async (req, res) => {
     try {
-        const blogs = await blogModel.find({ isPublished: true }); // Chỉ lấy bài viết có isPublished là true [1]
+        const blogs = await Blog.find({ isPublished: true }); // Chỉ lấy bài viết có isPublished là true [1]
         res.json({ success: true, blogs });
     } catch (error) {
         res.json({ success: false, message: error.message });
     }
 };
 
-// 2. Lấy chi tiết một bài viết theo ID
+// Lấy chi tiết một bài viết theo ID
 export const getBlogById = async (req, res) => {
     try {
         const { blogId } = req.params; // Lấy ID từ URL parameter [5]
-        const blog = await blogModel.findById(blogId);
+        const blog = await Blog.findById(blogId);
         
         if (!blog) {
             return res.json({ success: false, message: "Blog not found" });
@@ -65,15 +65,15 @@ export const getBlogById = async (req, res) => {
     }
 };
 
-// 3. Xóa bài viết theo ID (Bảo mật: Chỉ Admin)
+//  Xóa bài viết theo ID (Bảo mật: Chỉ Admin)
 export const deleteBlogById = async (req, res) => {
     try {
-        const { id } = req.body; // Nhận ID từ body của yêu cầu [3]
+        const { id } = req.body; // Nhận ID từ body của yêu cầu 
         
-        await blogModel.findByIdAndDelete(id);
+        await Blog.findByIdAndDelete(id);
         
-        // Xóa tất cả bình luận liên quan đến bài viết này [4]
-        await commentModel.deleteMany({ blog: id });
+        // Xóa tất cả bình luận liên quan đến bài viết này 
+        await Comment.deleteMany({ blog: id });
         
         res.json({ success: true, message: "blog deleted successfully" });
     } catch (error) {
@@ -81,11 +81,11 @@ export const deleteBlogById = async (req, res) => {
     }
 };
 
-// 4. Cập nhật trạng thái Xuất bản/Chưa xuất bản (Toggle Publish)
+// Cập nhật trạng thái Xuất bản/Chưa xuất bản (Toggle Publish)
 export const togglePublish = async (req, res) => {
     try {
         const { id } = req.body;
-        const blog = await blogModel.findById(id);
+        const blog = await Blog.findById(id);
         
         // Đảo ngược trạng thái isPublished [6, 7]
         blog.isPublished = !blog.isPublished;
@@ -111,7 +111,7 @@ export const getBlogComments = async (req, res) => {
         console.log("Chay toi day roi ne")
     try {
         const { blogId } = req.body;  
-        const comments = await Comment.find({ blog: blogId, isApproved: true }).sort({ createdAt: -1 }); // Chỉ lấy bình luận đã được duyệt
+        const comments = await Comment.find({ Blog: blogId, isApproved: true }).sort({ createdAt: -1 }); // Chỉ lấy bình luận đã được duyệt
         res.json({ success: true, comments });
     } catch (error) {
         res.json({ success: false, message: error.message });
