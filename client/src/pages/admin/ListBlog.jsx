@@ -28,8 +28,8 @@ const ListBlog = () => {
       header: "Blog Title",
       sortable: true,
       render: (item) => (
-        <div className="max-w-xs truncate font-medium text-gray-800" title={item.blog.title}>
-          {item.blog.title}
+        <div className="max-w-xs truncate font-medium text-gray-800" title={item.title}>
+          {item.title}
         </div>
       ),
     },
@@ -39,7 +39,7 @@ const ListBlog = () => {
       sortable: true,
       render: (item) => (
         <span className="px-2 py-1 text-xs bg-primary/10 text-primary rounded-full">
-          {item.blog.category}
+          {item.category}
         </span>
       ),
     },
@@ -48,7 +48,7 @@ const ListBlog = () => {
       header: "Date",
       sortable: true,
       render: (item) => {
-        const BlogDate = new Date(item.blog.createdAt);
+        const BlogDate = new Date(item.createdAt);
         return (
           <span className="text-gray-600">
             {BlogDate.toLocaleDateString()}
@@ -63,10 +63,10 @@ const ListBlog = () => {
       render: (item) => (
         <p
           className={`${
-            item.blog.isPublished ? "text-green-600" : "text-orange-700"
+            item.isPublished ? "text-green-600" : "text-orange-700"
           }`}
         >
-          {item.blog.isPublished ? "Published" : "Unpublished"}
+          {item.isPublished ? "Published" : "Unpublished"}
         </p>
       ),
     },
@@ -76,11 +76,15 @@ const ListBlog = () => {
       sortable: false,
       render: (item) => (
         <div className="flex items-center gap-3">
-          <button className="border px-2 py-0.5 text-xs rounded cursor-pointer hover:bg-gray-100 transition-colors">
-            {item.blog.isPublished ? "Unpublish" : "Publish"}
+          <button
+            onClick={() => handlePublishToggle(item)}
+            className="border px-2 py-0.5 text-xs rounded cursor-pointer hover:bg-gray-100 transition-colors"
+          >
+            {item.isPublished ? "Unpublish" : "Publish"}
           </button>
           <img
             src={assets.cross_icon}
+            onClick={() => handleDelete(item)}
             className="w-5 hover:scale-110 transition-all cursor-pointer"
             alt="Delete"
           />
