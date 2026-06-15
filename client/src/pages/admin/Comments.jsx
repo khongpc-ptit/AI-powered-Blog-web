@@ -134,6 +134,9 @@ const Comments = () => {
     .map((comment, index) => ({
       comment,
       index: index + 1,
+      name: comment.name,
+      content: comment.content,
+      blogTitle: comment.blog?.title || "",
     }));
 
   return (
@@ -182,7 +185,7 @@ const Comments = () => {
         data={tableData}
         columns={columns}
         searchPlaceholder="Search comments..."
-        searchableFields={["name", "content", "blog.title"]}
+        searchableFields={["name", "content", "blogTitle"]}
         filterLabel="Approval"
         filterOptions={[
           { value: "approved", label: "Approved", filterFn: (data) => data.filter((item) => item.comment.isApproved) },
