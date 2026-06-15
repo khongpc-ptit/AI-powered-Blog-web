@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 
 const DataTable = ({
   data = [],
@@ -28,16 +28,18 @@ const DataTable = ({
     switch (filter) {
       case "today":
         return { start: today, end: new Date(today.getTime() + 86400000) };
-      case "week":
+      case "week": {
         const weekStart = new Date(today);
         weekStart.setDate(today.getDate() - today.getDay());
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekStart.getDate() + 7);
         return { start: weekStart, end: weekEnd };
-      case "month":
+      }
+      case "month": {
         const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         return { start: monthStart, end: monthEnd };
+      }
       default:
         return null;
     }
@@ -85,7 +87,7 @@ const DataTable = ({
 
       if (aVal === bVal) return 0;
 
-      let comparison = 0;
+      let comparison;
       if (typeof aVal === "string") {
         comparison = aVal.localeCompare(bVal);
       } else if (aVal instanceof Date || !isNaN(Date.parse(aVal))) {
