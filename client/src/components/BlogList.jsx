@@ -8,6 +8,8 @@ const BlogList = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [dateFilter, setDateFilter] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(8);
 
   const getDateRange = (filter) => {
     const now = new Date();
@@ -79,6 +81,25 @@ const BlogList = () => {
 
     return result;
   }, [menu, searchQuery, sortBy, dateFilter]);
+
+  // Reset to page 1 whenever filters change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [menu, searchQuery, sortBy, dateFilter]);
+
+  const totalPages = Math.ceil(filteredAndSortedBlogs.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedBlogs = filteredAndSortedBlogs.slice(startIndex, startIndex + itemsPerPage);
+
+  const handlePageChange = (page) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleItemsPerPageChange = (value) => {
+    setItemsPerPage(value);
+    setCurrentPage(1);
+  };
 
   const resetFilters = () => {
     setSearchQuery("");
@@ -185,8 +206,8 @@ const BlogList = () => {
 
       {/* Blog Grid */}
       {filteredAndSortedBlogs.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mb-24 mx-8 sm:mx-16 xl:mx-40">
-          {filteredAndSortedBlogs.map((blog) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mb-8 mx-8 sm:mx-16 xl:mx-40">
+          {paginatedBlogs.map((blog) => (
             <BlogCard key={blog._id} blog={blog} />
           ))}
         </div>
@@ -199,6 +220,82 @@ const BlogList = () => {
           >
             Clear Filters
           </button>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {filteredAndSortedBlogs.length > 0 && totalPages > 1 && (
+        <div className="flex flex-wrap justify-center items-center gap-2 mb-24 px-4">
+          <button
+            onClick={() => handlePageChange(1)}
+            disabled={currentPage === 1}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+          >
+            « First
+          </button>
+          <button
+            onClick={() => handlePageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+          >
+            ‹ Prev
+          </button>
+
+          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            let pageNum;
+            if (totalPages <= 5) {
+              pageNum = i + 1;
+            } else if (currentPage <= 3) {
+              pageNum = i + 1;
+            } else if (currentPage >= totalPages - 2) {
+              pageNum = totalPages - 4 + i;
+            } else {
+              pageNum = currentPage - 2 + i;
+            }
+            return (
+              <button
+                key={pageNum}
+                onClick={() => handlePageChange(pageNum)}
+                className={`px-3 py-1.5 text-sm border rounded ${
+                  currentPage === pageNum
+                    ? "bg-primary text-white border-primary"
+                    : "border-gray-300 hover:bg-gray-100 bg-white"
+                }`}
+              >
+                {pageNum}
+              </button>
+            );
+          })}
+
+          <button
+            onClick={() => handlePageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+          >
+            Next ›
+          </button>
+          <button
+            onClick={() => handlePageChange(totalPages)}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+          >
+            Last »
+          </button>
+
+          <div className="flex items-center gap-2 ml-4">
+            <span className="text-sm text-gray-600">Per page:</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white"
+            >
+              {[4, 8, 12, 16, 20].map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       )}
     </div>
