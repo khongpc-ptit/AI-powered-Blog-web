@@ -82,10 +82,7 @@ const BlogList = () => {
     return result;
   }, [menu, searchQuery, sortBy, dateFilter]);
 
-  // Reset to page 1 whenever filters change
-  useMemo(() => {
-    setCurrentPage(1);
-  }, [menu, searchQuery, sortBy, dateFilter]);
+  // Reset to page 1 whenever filters change (handled in onChange handlers below)
 
   const totalPages = Math.ceil(filteredAndSortedBlogs.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -105,6 +102,25 @@ const BlogList = () => {
     setSearchQuery("");
     setSortBy("newest");
     setDateFilter("all");
+    setCurrentPage(1);
+  };
+
+  // Wrappers that also reset pagination to page 1
+  const handleCategoryChange = (cat) => {
+    setMenu(cat);
+    setCurrentPage(1);
+  };
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setCurrentPage(1);
+  };
+  const handleSortChange = (e) => {
+    setSortBy(e.target.value);
+    setCurrentPage(1);
+  };
+  const handleDateFilterChange = (e) => {
+    setDateFilter(e.target.value);
+    setCurrentPage(1);
   };
 
   const hasActiveFilters = searchQuery || dateFilter !== "all";
@@ -116,7 +132,7 @@ const BlogList = () => {
         {blogCategories.map((item) => (
           <div key={item} className="relative">
             <button
-              onClick={() => setMenu(item)}
+              onClick={() => handleCategoryChange(item)}
               className={`cursor-pointer text-gray-500 ${
                 menu === item && "text-white px-4 pt-0.5"
               }`}
@@ -143,7 +159,7 @@ const BlogList = () => {
               type="text"
               placeholder="Search blogs..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
               className="w-full px-4 py-2 pl-10 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
             />
             <svg
@@ -164,7 +180,7 @@ const BlogList = () => {
           {/* Sort Dropdown */}
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
+            onChange={handleSortChange}
             className="px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white"
           >
             <option value="newest">Newest First</option>
@@ -176,7 +192,7 @@ const BlogList = () => {
           {/* Date Filter */}
           <select
             value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
+            onChange={handleDateFilterChange}
             className="px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white"
           >
             <option value="all">All Time</option>
