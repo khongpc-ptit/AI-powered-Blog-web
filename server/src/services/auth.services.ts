@@ -54,8 +54,6 @@ class AuthService {
     return { accessToken, refreshToken }
   }
   async checkEmailExists(email: string) {
-    console.log(email)
-    console.log(process.env.DB_USERS_COLLECTION)
     const user = await databaseService.users.findOne({ email })
     return !!user
   }

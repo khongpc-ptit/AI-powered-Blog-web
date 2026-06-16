@@ -4,6 +4,7 @@ import authRouter from './routes/auth.routes'
 const app = express()
 app.use(cors())
 import databaseService from './services/database.services'
+import { defaultErrorHandler } from './middlewares/error.middlewares'
 
 const PORT = process.env.PORT || 3000
 
@@ -14,6 +15,8 @@ app.use(express.urlencoded({ extended: true })) // Middleware để parse URL-en
 // Routes
 
 app.use('/api/auth', authRouter)
+
+app.use(defaultErrorHandler) // Middleware xử lý lỗi mặc định
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`)
 })

@@ -2,6 +2,7 @@ import { checkSchema } from 'express-validator'
 import { USER_MESSAGES } from '~/constants/messages'
 import authService from '~/services/auth.services'
 import { validate } from '~/utils/validation'
+
 export const registerValidator = validate(
   checkSchema(
     {
@@ -69,7 +70,7 @@ export const registerValidator = validate(
       confirm_password: {
         in: 'body',
         notEmpty: {
-          errorMessage: USER_MESSAGES.CONFIRM_PASSWORD_NOT_EMPTY,
+          errorMessage: USER_MESSAGES.PASSWORD_NOT_EMPTY,
           bail: true
         },
         custom: {
