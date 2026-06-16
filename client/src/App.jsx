@@ -8,6 +8,7 @@ import ListBlog from "./pages/admin/ListBlog";
 import AddBlog from "./pages/admin/AddBlog";
 import Comments from "./pages/admin/Comments";
 import Categories from "./pages/admin/Categories";
+import Users from "./pages/admin/Users";
 import Login from "./components/admin/Login";
 import "quill/dist/quill.snow.css";
 const App = () => {
@@ -22,6 +23,7 @@ const App = () => {
           <Route path="addBlog" element={<AddBlog />} />
           <Route path="comments" element={<Comments />} />
           <Route path="categories" element={<Categories />} />
+          <Route path="users" element={<Users />} />
         </Route>
       </Routes>
     </div>
