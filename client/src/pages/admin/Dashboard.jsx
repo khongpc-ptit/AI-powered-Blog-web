@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { assets, dashboard_data } from "../../assets/assets";
+import { assets } from "../../assets/assets";
+import { dashboardService, adminBlogService } from "../../services/api";
 import BlogTableItem from "../../components/admin/BlogTableItem";
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState({
@@ -8,9 +9,32 @@ const Dashboard = () => {
     drafts: 0,
     recentBlogs: [],
   });
+  const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
-    setDashboardData(dashboard_data);
+    setLoading(true);
+    try {
+      const response = await dashboardService.get();
+      const data = response.data.data || response.data;
+      setDashboardData(data);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      // Fallback: fetch recent blogs directly
+      try {
+        const response = await adminBlogService.getAll({ limit: 5 });
+        const blogs = response.data.data?.blogs || [];
+        setDashboardData({
+          blogs: blogs.length,
+          comments: 0,
+          drafts: blogs.filter((b) => !b.isPublished).length,
+          recentBlogs: blogs,
+        });
+      } catch (blogError) {
+        console.error("Error fetching blogs:", blogError);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -23,21 +47,21 @@ const Dashboard = () => {
         <div className="flex items-center gap-4 bg-white p-4 min-w-58 rounded shadow cursor-pointer hover:scale-105 transition-all">
           <img src={assets.dashboard_icon_1} alt="" />
           <div>
-            <p>{dashboardData.blogs}</p>
+            <p>{loading ? "..." : dashboardData.blogs}</p>
             <p className="text-gray-400 font-light">Blogs</p>
           </div>
         </div>
         <div className="flex items-center gap-4 bg-white p-4 min-w-58 rounded shadow cursor-pointer hover:scale-105 transition-all">
           <img src={assets.dashboard_icon_2} alt="" />
           <div>
-            <p>{dashboardData.comments}</p>
+            <p>{loading ? "..." : dashboardData.comments}</p>
             <p className="text-gray-400 font-light">Comments</p>
           </div>
         </div>
         <div className="flex items-center gap-4 bg-white p-4 min-w-58 rounded shadow cursor-pointer hover:scale-105 transition-all">
           <img src={assets.dashboard_icon_3} alt="" />
           <div>
-            <p>{dashboardData.drafts}</p>
+            <p>{loading ? "..." : dashboardData.drafts}</p>
             <p className="text-gray-400 font-light">Drafts</p>
           </div>
         </div>
@@ -69,16 +93,30 @@ const Dashboard = () => {
               </tr>
             </thead>
             <tbody>
-              {dashboardData.recentBlogs.map((blog, index) => {
-                return (
-                  <BlogTableItem
-                    key={blog._id}
-                    blog={blog}
-                    fetchBlogs={fetchDashboardData}
-                    index={index + 1}
-                  />
-                );
-              })}
+              {loading ? (
+                <tr>
+                  <td colSpan="5" className="text-center py-8 text-gray-400">
+                    Loading...
+                  </td>
+                </tr>
+              ) : dashboardData.recentBlogs.length > 0 ? (
+                dashboardData.recentBlogs.map((blog, index) => {
+                  return (
+                    <BlogTableItem
+                      key={blog._id}
+                      blog={blog}
+                      fetchBlogs={fetchDashboardData}
+                      index={index + 1}
+                    />
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="5" className="text-center py-8 text-gray-400">
+                    No blogs found.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

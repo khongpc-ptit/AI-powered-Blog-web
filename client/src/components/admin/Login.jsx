@@ -1,11 +1,35 @@
-import React from "react";
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { authService } from "../../services/api";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await authService.login(email, password);
+      const { token, user } = response.data.data || response.data;
+
+      if (token) {
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", JSON.stringify(user));
+        navigate("/admin");
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
+
   return (
     <div className="flex items-center justify-center h-screen">
       <div className="w-full max-w-md p-6 max-md:m-6 border border-primary/30 shadow-xl shadow-primary/15 rounded-lg">
@@ -19,6 +43,11 @@ const Login = () => {
               Enter your credentials to access the admin panel
             </p>
           </div>
+          {error && (
+            <div className="mb-4 w-full sm:max-w-md text-red-500 text-sm text-center">
+              {error}
+            </div>
+          )}
           <form
             onSubmit={handleSubmit}
             className="mt-6 w-full sm:max-w-md text-gray-600"
@@ -47,9 +76,10 @@ const Login = () => {
             </div>
             <button
               type="submit"
-              className="w-full py-3 font-medium bg-primary text-white rounded cursor-pointer hover:bg-primary/90 transition-all"
+              disabled={loading}
+              className="w-full py-3 font-medium bg-primary text-white rounded cursor-pointer hover:bg-primary/90 transition-all disabled:opacity-50"
             >
-              Login
+              {loading ? "Logging in..." : "Login"}
             </button>
           </form>
         </div>

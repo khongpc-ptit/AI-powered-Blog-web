@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from "react";
-import { blogCategories, blog_data } from "../assets/assets";
+import React, { useState, useMemo, useEffect } from "react";
+import { blogCategories } from "../assets/assets";
 import { motion } from "motion/react";
 import BlogCard from "./BlogCard";
+import { blogService } from "../services/api";
 
 const BlogList = () => {
   const [menu, setMenu] = useState("All");
@@ -10,6 +11,43 @@ const BlogList = () => {
   const [dateFilter, setDateFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(8);
+  const [blogs, setBlogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState([]);
+
+  // Fetch blogs from API
+  const fetchBlogs = async () => {
+    setLoading(true);
+    try {
+      const response = await blogService.getAll();
+      const data = response.data.data?.blogs || response.data.data || [];
+      // Filter only published blogs for public view
+      const publishedBlogs = data.filter((blog) => blog.isPublished !== false);
+      setBlogs(publishedBlogs);
+    } catch (error) {
+      console.error("Error fetching blogs:", error);
+      setBlogs([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch categories
+  const fetchCategories = async () => {
+    try {
+      const response = await blogService.getCategories();
+      const cats = response.data.data?.categories || response.data.data || [];
+      setCategories(["All", ...cats.map((c) => c.name || c)]);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      setCategories(blogCategories);
+    }
+  };
+
+  useEffect(() => {
+    fetchBlogs();
+    fetchCategories();
+  }, []);
 
   const getDateRange = (filter) => {
     const now = new Date();
@@ -34,7 +72,7 @@ const BlogList = () => {
   };
 
   const filteredAndSortedBlogs = useMemo(() => {
-    let result = [...blog_data];
+    let result = [...blogs];
 
     // Filter by category
     if (menu !== "All") {
@@ -46,9 +84,9 @@ const BlogList = () => {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (blog) =>
-          blog.title.toLowerCase().includes(query) ||
-          blog.description.toLowerCase().includes(query) ||
-          blog.category.toLowerCase().includes(query)
+          (blog.title && blog.title.toLowerCase().includes(query)) ||
+          (blog.description && blog.description.toLowerCase().includes(query)) ||
+          (blog.category && blog.category.toLowerCase().includes(query))
       );
     }
 
@@ -71,18 +109,16 @@ const BlogList = () => {
         case "oldest":
           return new Date(a.createdAt) - new Date(b.createdAt);
         case "title-asc":
-          return a.title.localeCompare(b.title);
+          return (a.title || "").localeCompare(b.title || "");
         case "title-desc":
-          return b.title.localeCompare(a.title);
+          return (b.title || "").localeCompare(a.title || "");
         default:
           return 0;
       }
     });
 
     return result;
-  }, [menu, searchQuery, sortBy, dateFilter]);
-
-  // Reset to page 1 whenever filters change (handled in onChange handlers below)
+  }, [blogs, menu, searchQuery, sortBy, dateFilter]);
 
   const totalPages = Math.ceil(filteredAndSortedBlogs.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -125,11 +161,14 @@ const BlogList = () => {
 
   const hasActiveFilters = searchQuery || dateFilter !== "all";
 
+  // Use dynamic categories or fallback to static
+  const displayCategories = categories.length > 0 ? categories : blogCategories;
+
   return (
     <div>
       {/* Category Filter */}
       <div className="flex justify-center gap-4 sm:gap-8 my-10 relative">
-        {blogCategories.map((item) => (
+        {displayCategories.map((item) => (
           <div key={item} className="relative">
             <button
               onClick={() => handleCategoryChange(item)}
@@ -214,14 +253,24 @@ const BlogList = () => {
 
         {/* Results Count */}
         <div className="mt-4 text-sm text-gray-600">
-          Showing {filteredAndSortedBlogs.length} blog{filteredAndSortedBlogs.length !== 1 ? "s" : ""}
-          {menu !== "All" && ` in ${menu}`}
-          {hasActiveFilters && " (filtered)"}
+          {loading ? (
+            "Loading..."
+          ) : (
+            <>
+              Showing {filteredAndSortedBlogs.length} blog{filteredAndSortedBlogs.length !== 1 ? "s" : ""}
+              {menu !== "All" && ` in ${menu}`}
+              {hasActiveFilters && " (filtered)"}
+            </>
+          )}
         </div>
       </div>
 
       {/* Blog Grid */}
-      {filteredAndSortedBlogs.length > 0 ? (
+      {loading ? (
+        <div className="text-center py-16">
+          <p className="text-gray-500 text-lg">Loading blogs...</p>
+        </div>
+      ) : filteredAndSortedBlogs.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mb-8 mx-8 sm:mx-16 xl:mx-40">
           {paginatedBlogs.map((blog) => (
             <BlogCard key={blog._id} blog={blog} />
@@ -240,7 +289,7 @@ const BlogList = () => {
       )}
 
       {/* Pagination */}
-      {filteredAndSortedBlogs.length > 0 && totalPages > 1 && (
+      {!loading && filteredAndSortedBlogs.length > 0 && totalPages > 1 && (
         <div className="flex flex-wrap justify-center items-center gap-2 mb-24 px-4">
           <button
             onClick={() => handlePageChange(1)}

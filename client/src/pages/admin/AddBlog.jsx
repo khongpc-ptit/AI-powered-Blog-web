@@ -1,43 +1,101 @@
 import React from "react";
-import { assets, blogCategories, blog_data } from "../../assets/assets";
+import { assets, blogCategories } from "../../assets/assets";
 import { useState } from "react";
 import Quill from "quill";
 import { useRef } from "react";
 import { useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import { adminBlogService, blogService } from "../../services/api";
 
 const AddBlog = () => {
   const editorRef = useRef(null);
   const quillRef = useRef(null);
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const blogId = searchParams.get("id");
   const isEditMode = !!blogId;
 
-  const [image, setImage] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [title, setTitle] = useState("");
   const [subTitle, setSubTitle] = useState("");
   const [category, setCategory] = useState("Startup");
   const [isPublished, setIsPublished] = useState(false);
   const [description, setDescription] = useState("");
+  const [categories, setCategories] = useState([]);
+
+  // Fetch categories for dropdown
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await blogService.getCategories();
+        const cats = response.data.data?.categories || response.data.data || [];
+        if (cats.length > 0) {
+          setCategories(["Startup", "Technology", ...cats.map((c) => c.name || c)]);
+        }
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+        setCategories(blogCategories.filter((c) => c !== "All"));
+      }
+    };
+    fetchCategories();
+  }, []);
+
   const onSubmitHandler = async (e) => {
     e.preventDefault();
-    // TODO: Backend sẽ xử lý logic submit
-    // Khi backend ready, gọi API tương ứng:
-    // - Nếu isEditMode: PUT /api/admin/blogs/:id
-    // - Nếu không: POST /api/admin/blogs
-    console.log("Form submitted:", {
-      title,
-      subTitle,
-      category,
-      isPublished,
-      description,
-      image,
-    });
+    setLoading(true);
+
+    const formData = new FormData();
+    formData.append("title", title);
+    formData.append("subTitle", subTitle);
+    formData.append("category", category);
+    formData.append("description", description);
+    formData.append("isPublished", String(isPublished));
+
+    if (image) {
+      formData.append("image", image);
+    }
+
+    try {
+      if (isEditMode) {
+        await adminBlogService.update(blogId, formData);
+      } else {
+        await adminBlogService.create(formData);
+      }
+      navigate("/admin/listBlog");
+    } catch (error) {
+      console.error("Error submitting blog:", error);
+      alert("Failed to save blog. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const generateContent = () => {
-    // TODO: Backend sẽ implement AI content generation
+  const generateContent = async () => {
+    if (!title && !subTitle) {
+      alert("Please enter a title or subtitle first.");
+      return;
+    }
+
+    const prompt = subTitle || title;
+    if (!window.confirm(`Generate content for "${prompt}"?`)) return;
+
+    setLoading(true);
+    try {
+      const response = await adminBlogService.generateContent({ prompt });
+      const generatedContent = response.data.data?.content || response.data.content;
+
+      if (generatedContent && quillRef.current) {
+        quillRef.current.root.innerHTML = generatedContent;
+        setDescription(generatedContent);
+      }
+    } catch (error) {
+      console.error("Error generating content:", error);
+      alert("Failed to generate content. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Init Quill editor
@@ -47,7 +105,6 @@ const AddBlog = () => {
         theme: "snow",
       });
 
-      // Listen to text change to update description state
       quillRef.current.on("text-change", () => {
         if (quillRef.current) {
           setDescription(quillRef.current.root.innerHTML);
@@ -56,29 +113,34 @@ const AddBlog = () => {
     }
   }, []);
 
-  // Load blog data khi ở chế độ sửa
+  // Load blog data when editing
   useEffect(() => {
-    if (isEditMode) {
-      // TODO: Khi backend ready, gọi API GET /api/admin/blogs/:id
-      // Hiện tại dùng mock data để demo
-      const blog = blog_data.find((b) => b._id === blogId);
-      if (blog) {
-        setTitle(blog.title || "");
-        setSubTitle(blog.subTitle || "");
-        setCategory(blog.category || "Startup");
-        setIsPublished(blog.isPublished || false);
-        setDescription(blog.description || "");
+    const fetchBlogData = async () => {
+      if (isEditMode) {
+        try {
+          const response = await blogService.getById(blogId);
+          const blog = response.data.data || response.data;
 
-        if (blog.image) {
-          setImagePreview(blog.image);
-        }
+          setTitle(blog.title || "");
+          setSubTitle(blog.subTitle || "");
+          setCategory(blog.category || "Startup");
+          setIsPublished(blog.isPublished || false);
+          setDescription(blog.description || "");
 
-        // Set content cho Quill editor
-        if (quillRef.current) {
-          quillRef.current.root.innerHTML = blog.description || "";
+          if (blog.image) {
+            setImagePreview(blog.image);
+          }
+
+          if (quillRef.current) {
+            quillRef.current.root.innerHTML = blog.description || "";
+          }
+        } catch (error) {
+          console.error("Error fetching blog data:", error);
         }
       }
-    }
+    };
+
+    fetchBlogData();
   }, [isEditMode, blogId]);
 
   return (
@@ -104,6 +166,7 @@ const AddBlog = () => {
             }}
             type="file"
             id="image"
+            accept="image/*"
             hidden
           />
         </label>
@@ -131,7 +194,8 @@ const AddBlog = () => {
           <button
             type="button"
             onClick={generateContent}
-            className="absolute bottom-1 right-2 ml-2 text-xs text-white bg-black/70 px-4 py-1.5 rounded hover:underline cursor--pointer"
+            disabled={loading}
+            className="absolute bottom-1 right-2 ml-2 text-xs text-white bg-black/70 px-4 py-1.5 rounded hover:underline cursor-pointer disabled:opacity-50"
           >
             Generate with AI
           </button>
@@ -143,13 +207,21 @@ const AddBlog = () => {
           name="category"
           className="mt-2 px-3 py-2 border text-gray-500 border-gray-300 outline-none rounded"
         >
-          {blogCategories.map((item, index) => {
-            return (
+          {categories.length > 0 ? (
+            categories.map((item, index) => (
               <option key={index} value={item}>
                 {item}
               </option>
-            );
-          })}
+            ))
+          ) : (
+            blogCategories
+              .filter((c) => c !== "All")
+              .map((item, index) => (
+                <option key={index} value={item}>
+                  {item}
+                </option>
+              ))
+          )}
         </select>
         <div className="flex gap-2 mt-4">
           <p>Publish Now</p>
@@ -162,9 +234,10 @@ const AddBlog = () => {
         </div>
         <button
           type="submit"
-          className="mt-8 w-40 h-10 bg-primary text-white rounded cursor-pointer text-sm"
+          disabled={loading}
+          className="mt-8 w-40 h-10 bg-primary text-white rounded cursor-pointer text-sm disabled:opacity-50"
         >
-          {isEditMode ? "Update Blog" : "Add Blog"}
+          {loading ? "Saving..." : isEditMode ? "Update Blog" : "Add Blog"}
         </button>
       </div>
     </form>

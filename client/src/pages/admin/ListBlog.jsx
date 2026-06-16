@@ -1,21 +1,54 @@
 import React, { useEffect, useState } from "react";
-import { blog_data } from "../../assets/assets";
 import DataTable from "../../components/DataTable";
 import { assets } from "../../assets/assets";
 import { useNavigate } from "react-router-dom";
+import { adminBlogService } from "../../services/api";
 
 const ListBlog = () => {
   const [blogs, setBlogs] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
   const fetchBlogs = async () => {
     setLoading(true);
-    setBlogs(blog_data);
-    setLoading(false);
+    try {
+      const response = await adminBlogService.getAll();
+      const data = response.data.data?.blogs || response.data.data || [];
+      setBlogs(data);
+    } catch (error) {
+      console.error("Error fetching blogs:", error);
+    } finally {
+      setLoading(false);
+    }
   };
+
   useEffect(() => {
     fetchBlogs();
   }, []);
+
+  const handlePublishToggle = async (blog) => {
+    try {
+      await adminBlogService.togglePublish(blog._id);
+      setBlogs((prev) =>
+        prev.map((b) =>
+          b._id === blog._id ? { ...b, isPublished: !b.isPublished } : b
+        )
+      );
+    } catch (error) {
+      console.error("Error toggling publish status:", error);
+    }
+  };
+
+  const handleDelete = async (blog) => {
+    if (window.confirm(`Are you sure you want to delete "${blog.title}"?`)) {
+      try {
+        await adminBlogService.delete(blog._id);
+        setBlogs((prev) => prev.filter((b) => b._id !== blog._id));
+      } catch (error) {
+        console.error("Error deleting blog:", error);
+      }
+    }
+  };
 
   const columns = [
     {
@@ -105,18 +138,6 @@ const ListBlog = () => {
     ...blog,
     index: index + 1,
   }));
-
-  const handlePublishToggle = (blog) => {
-    setBlogs((prev) =>
-      prev.map((b) =>
-        b._id === blog._id ? { ...b, isPublished: !b.isPublished } : b
-      )
-    );
-  };
-
-  const handleDelete = (blog) => {
-    setBlogs((prev) => prev.filter((b) => b._id !== blog._id));
-  };
 
   return (
     <div className="flex-1 pt-5 px-5 sm:pt-12 sm:pl-1 bg-blue-50/50">

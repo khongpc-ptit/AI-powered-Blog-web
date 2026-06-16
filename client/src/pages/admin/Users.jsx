@@ -1,20 +1,14 @@
 import React, { useEffect, useState, useMemo } from "react";
 import DataTable from "../../components/DataTable";
 import { assets } from "../../assets/assets";
-
-// Mock roles data - sau này thay bằng API
-const mockRoles = [
-  { _id: "1", name: "Super Admin" },
-  { _id: "2", name: "Admin" },
-  { _id: "3", name: "Blogger" },
-  { _id: "4", name: "User" },
-];
+import { userService, roleService } from "../../services/api";
 
 const Users = () => {
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState("add"); // 'add' | 'edit'
+  const [modalMode, setModalMode] = useState("add");
   const [editingUser, setEditingUser] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
@@ -28,82 +22,43 @@ const Users = () => {
     avatar: "",
   });
 
-  // Mock users data
-  const mockUsers = [
-    {
-      _id: "1",
-      name: "Nguyễn Văn A",
-      email: "nguyenvana@example.com",
-      date_of_birth: "1995-05-15",
-      role_id: "1",
-      verified: "Verified",
-      location: "Hà Nội",
-      avatar: "",
-      created_at: "2025-01-10T08:00:00.000Z",
-      updated_at: "2025-06-01T10:30:00.000Z",
-    },
-    {
-      _id: "2",
-      name: "Trần Thị B",
-      email: "tranthib@example.com",
-      date_of_birth: "1998-08-22",
-      role_id: "3",
-      verified: "Verified",
-      location: "TP. Hồ Chí Minh",
-      avatar: "",
-      created_at: "2025-02-15T09:00:00.000Z",
-      updated_at: "2025-05-20T14:00:00.000Z",
-    },
-    {
-      _id: "3",
-      name: "Lê Văn C",
-      email: "levanc@example.com",
-      date_of_birth: "2000-03-10",
-      role_id: "4",
-      verified: "Unverified",
-      location: "Đà Nẵng",
-      avatar: "",
-      created_at: "2025-03-01T10:00:00.000Z",
-      updated_at: "2025-03-01T10:00:00.000Z",
-    },
-    {
-      _id: "4",
-      name: "Phạm Thị D",
-      email: "phamthid@example.com",
-      date_of_birth: "1992-11-30",
-      role_id: "2",
-      verified: "Verified",
-      location: "Hải Phòng",
-      avatar: "",
-      created_at: "2025-04-05T11:00:00.000Z",
-      updated_at: "2025-06-10T16:00:00.000Z",
-    },
-    {
-      _id: "5",
-      name: "Hoàng Văn E",
-      email: "hoangvane@example.com",
-      date_of_birth: "1997-07-18",
-      role_id: "3",
-      verified: "Verified",
-      location: "Cần Thơ",
-      avatar: "",
-      created_at: "2025-05-12T12:00:00.000Z",
-      updated_at: "2025-05-12T12:00:00.000Z",
-    },
-  ];
-
   const fetchUsers = async () => {
     setLoading(true);
-    setUsers(mockUsers);
-    setLoading(false);
+    try {
+      const response = await userService.getAll();
+      const data = response.data.data?.users || response.data.data || [];
+      setUsers(data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      const response = await roleService.getAll();
+      const data = response.data.data || [];
+      setRoles(data);
+    } catch (error) {
+      console.error("Error fetching roles:", error);
+      setRoles([
+        { _id: "1", name: "Super Admin" },
+        { _id: "2", name: "Admin" },
+        { _id: "3", name: "Blogger" },
+        { _id: "4", name: "User" },
+      ]);
+    }
   };
 
   useEffect(() => {
     fetchUsers();
+    fetchRoles();
   }, []);
 
   const getRoleName = (roleId) => {
-    const role = mockRoles.find((r) => r._id === roleId);
+    const role = roles.find((r) => r._id === roleId);
     return role ? role.name : "Unknown";
   };
 
@@ -141,31 +96,38 @@ const Users = () => {
     setDeleteConfirm(user);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteConfirm) {
-      setUsers((prev) => prev.filter((u) => u._id !== deleteConfirm._id));
+      try {
+        await userService.delete(deleteConfirm._id);
+        setUsers((prev) => prev.filter((u) => u._id !== deleteConfirm._id));
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        alert("Failed to delete user. Please try again.");
+      }
       setDeleteConfirm(null);
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (modalMode === "add") {
-      const newUser = {
-        _id: Date.now().toString(),
-        ...formData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setUsers((prev) => [...prev, newUser]);
-    } else if (modalMode === "edit" && editingUser) {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u._id === editingUser._id
-            ? { ...u, ...formData, updated_at: new Date().toISOString() }
-            : u
-        )
-      );
+    try {
+      if (modalMode === "add") {
+        const response = await userService.create(formData);
+        const newUser = response.data.data || response.data;
+        setUsers((prev) => [...prev, newUser]);
+      } else if (modalMode === "edit" && editingUser) {
+        const response = await userService.update(editingUser._id, formData);
+        const updatedUser = response.data.data || response.data;
+        setUsers((prev) =>
+          prev.map((u) =>
+            u._id === editingUser._id ? updatedUser : u
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Error saving user:", error);
+      alert(error.response?.data?.error || "Failed to save user. Please try again.");
     }
     setShowModal(false);
   };
@@ -246,7 +208,7 @@ const Users = () => {
       header: "Created At",
       sortable: true,
       render: (item) => {
-        const date = new Date(item.created_at);
+        const date = new Date(item.created_at || item.createdAt);
         return <span className="text-gray-600">{date.toLocaleDateString()}</span>;
       },
     },
@@ -279,7 +241,7 @@ const Users = () => {
       index: index + 1,
       roleName: getRoleName(user.role_id),
     }));
-  }, [users]);
+  }, [users, roles]);
 
   return (
     <div className="flex-1 pt-5 px-5 sm:pt-12 sm:pl-1 bg-blue-50/50">
@@ -377,7 +339,7 @@ const Users = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white"
                   >
                     <option value="">Select Role</option>
-                    {mockRoles.map((role) => (
+                    {roles.map((role) => (
                       <option key={role._id} value={role._id}>
                         {role.name}
                       </option>

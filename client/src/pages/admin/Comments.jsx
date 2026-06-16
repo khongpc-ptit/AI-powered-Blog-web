@@ -1,32 +1,54 @@
 import React from "react";
 import { useState, useEffect } from "react";
 import DataTable from "../../components/DataTable";
-import { comments_data } from "../../assets/assets";
 import { assets } from "../../assets/assets";
+import { commentService } from "../../services/api";
 
 const Comments = () => {
   const [comments, setComments] = useState([]);
   const [approvalFilter, setApprovalFilter] = useState("pending");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+
   const fetchComments = async () => {
     setLoading(true);
-    setComments(comments_data);
-    setLoading(false);
+    try {
+      const response = await commentService.getAll();
+      const data = response.data.data?.comments || response.data.data || [];
+      setComments(data);
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      setComments([]);
+    } finally {
+      setLoading(false);
+    }
   };
+
   useEffect(() => {
     fetchComments();
   }, []);
 
-  const handleApprove = (commentId) => {
-    setComments((prev) =>
-      prev.map((c) =>
-        c._id === commentId ? { ...c, isApproved: true } : c
-      )
-    );
+  const handleApprove = async (commentId) => {
+    try {
+      await commentService.approve(commentId);
+      setComments((prev) =>
+        prev.map((c) =>
+          c._id === commentId ? { ...c, isApproved: true } : c
+        )
+      );
+    } catch (error) {
+      console.error("Error approving comment:", error);
+    }
   };
 
-  const handleDelete = (commentId) => {
-    setComments((prev) => prev.filter((c) => c._id !== commentId));
+  const handleDelete = async (commentId) => {
+    if (window.confirm("Are you sure you want to delete this comment?")) {
+      try {
+        await commentService.delete(commentId);
+        setComments((prev) => prev.filter((c) => c._id !== commentId));
+      } catch (error) {
+        console.error("Error deleting comment:", error);
+      }
+    }
   };
 
   const columns = [
