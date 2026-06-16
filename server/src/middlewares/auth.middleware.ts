@@ -2,7 +2,10 @@ import { checkSchema } from 'express-validator'
 import { USER_MESSAGES } from '~/constants/messages'
 import authService from '~/services/auth.services'
 import { validate } from '~/utils/validation'
-
+import databaseService from '~/services/database.services'
+import { errorWithStatus } from '~/models/Error'
+import HTTP_STATUS from '~/constants/httpStatus'
+import { comparePassword } from '~/utils/bcrypt'
 export const registerValidator = validate(
   checkSchema(
     {
@@ -97,5 +100,72 @@ export const registerValidator = validate(
       }
     },
     ['body'] //chỉ định nơi mà các trường dữ liệu được lấy lên để validate
+  )
+)
+export const loginValidator = validate(
+  checkSchema(
+    {
+      password: {
+        in: 'body',
+        isLength: {
+          options: { min: 6, max: 50 },
+          errorMessage: USER_MESSAGES.PASSWORD_LENGTH,
+          bail: true
+        },
+        notEmpty: {
+          errorMessage: USER_MESSAGES.PASSWORD_NOT_EMPTY,
+          bail: true
+        },
+        isStrongPassword: {
+          errorMessage: USER_MESSAGES.PASSWORD_STRONG,
+          options: {
+            minLength: 6,
+            minLowercase: 1,
+            minUppercase: 1,
+            minNumbers: 1,
+            minSymbols: 1
+          },
+          bail: true
+        }
+      },
+      email: {
+        in: 'body',
+        isEmail: {
+          errorMessage: USER_MESSAGES.EMAIL_INVALID,
+          bail: true
+        },
+        notEmpty: {
+          errorMessage: USER_MESSAGES.EMAIL_NOT_EMPTY,
+          bail: true
+        },
+        trim: true,
+        custom: {
+          // lấy được req vì custom validator của express-validator sẽ truyền vào 2 tham số là value (giá trị của trường đang validate) và một object chứa req, location, path
+          options: async (value, { req }) => {
+            const user = await databaseService.users.findOne({
+              email: value
+            })
+            if (!user) {
+              // vì không phải bộ lọc mặc định của express-validator nên sẽ không tự động trả về lỗi mà phải tự ném lỗi ra
+              throw new errorWithStatus({
+                message: USER_MESSAGES.EMAIL_OR_PASSWORD_INVALID,
+                status: HTTP_STATUS.UNAUTHORIZED
+              })
+            }
+            const isMatch = await comparePassword(req.body.password, user.password)
+            if (!isMatch) {
+              throw new errorWithStatus({
+                message: USER_MESSAGES.EMAIL_OR_PASSWORD_INVALID,
+                status: HTTP_STATUS.UNAUTHORIZED
+              })
+            }
+            req.user = user
+            return true // báo cho biết là trường này hợp lệ
+          },
+          bail: true
+        }
+      }
+    },
+    ['body']
   )
 )

@@ -1,10 +1,9 @@
 import User from '~/models/schemas/User.schema'
 import databaseService from './database.services'
 import { UserReqRegister } from '~/models/requests/UserReqRegister'
-import { passwordHash } from '~/utils/bcrypt'
+import { comparePassword, passwordHash } from '~/utils/bcrypt'
 import { tokenType } from '~/constants/enum'
 import { signToken } from '~/utils/jwt'
-
 import ms from 'ms'
 import { ObjectId } from 'mongodb'
 import RefreshToken from '~/models/schemas/RefreshToken.schema'
@@ -48,14 +47,25 @@ class AuthService {
       })
     )
     const user_id = result.insertedId.toString()
+    console.log('tới đây')
     const [accessToken, refreshToken] = await this.signAccessAndRefreshToken(user_id)
     // luu vao refresh tokens vào database
-    databaseService.refreshTokens.insertOne(new RefreshToken({ user_id: new ObjectId(user_id), token: refreshToken }))
+    await databaseService.refreshTokens.insertOne(
+      new RefreshToken({ user_id: new ObjectId(user_id), token: refreshToken })
+    )
     return { accessToken, refreshToken }
   }
   async checkEmailExists(email: string) {
     const user = await databaseService.users.findOne({ email })
     return !!user
+  }
+  async login(user: User, password: string) {
+    const user_id = user._id as ObjectId
+    const [accessToken, refreshToken] = await this.signAccessAndRefreshToken(user_id.toString())
+    await databaseService.refreshTokens.insertOne(
+      new RefreshToken({ user_id: new ObjectId(user_id), token: refreshToken })
+    )
+    return { accessToken, refreshToken }
   }
 }
 const authService = new AuthService()

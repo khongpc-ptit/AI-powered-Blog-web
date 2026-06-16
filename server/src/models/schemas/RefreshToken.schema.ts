@@ -8,7 +8,7 @@ type RefreshTokenType = {
 }
 export default class RefreshToken {
   _id?: ObjectId
-  user_id?: ObjectId
+  user_id: ObjectId
   token: string
   created_at?: Date
   constructor({ _id, user_id, token, created_at }: RefreshTokenType) {
