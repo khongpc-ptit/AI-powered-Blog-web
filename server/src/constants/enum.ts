@@ -7,3 +7,9 @@ export enum UserRole {
   User,
   Admin
 }
+export enum tokenType {
+  AccessToken,
+  RefreshToken,
+  ForgotPasswordToken,
+  EmailVerificationToken
+}

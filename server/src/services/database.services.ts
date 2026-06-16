@@ -23,6 +23,17 @@ class DatabaseService {
       // await this.client.close()
     }
   }
+  get users(): Collection {
+    // đại diện cho collection users trong MongoDB và
+    // chứa các phương thức để thực hiện các thao tác CRUD trên collection đó.
+    return this.db.collection(process.env.DB_USERS_COLLECTION as string)
+  }
+  get refreshTokens(): Collection {
+    return this.db.collection(process.env.DB_REFRESH_TOKENS_COLLECTION as string)
+  }
+  get roles(): Collection {
+    return this.db.collection(process.env.DB_ROLES_COLLECTION as string)
+  }
 }
 const databaseService = new DatabaseService()
 export default databaseService
