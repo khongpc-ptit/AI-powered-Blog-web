@@ -2,10 +2,12 @@ import React, { useEffect, useState } from "react";
 import { blog_data } from "../../assets/assets";
 import DataTable from "../../components/DataTable";
 import { assets } from "../../assets/assets";
+import { useNavigate } from "react-router-dom";
 
 const ListBlog = () => {
   const [blogs, setBlogs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
   const fetchBlogs = async () => {
     setLoading(true);
     setBlogs(blog_data);
@@ -76,6 +78,12 @@ const ListBlog = () => {
       sortable: false,
       render: (item) => (
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(`/admin/addBlog?id=${item._id}`)}
+            className="border px-2 py-0.5 text-xs rounded cursor-pointer hover:bg-gray-100 transition-colors"
+          >
+            Edit
+          </button>
           <button
             onClick={() => handlePublishToggle(item)}
             className="border px-2 py-0.5 text-xs rounded cursor-pointer hover:bg-gray-100 transition-colors"
