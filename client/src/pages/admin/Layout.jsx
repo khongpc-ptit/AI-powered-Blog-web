@@ -6,8 +6,10 @@ import Sidebar from "../../components/admin/Sidebar";
 
 const Layout = () => {
   const navigate = useNavigate();
+
   const logout = () => {
-    navigate("/");
+    localStorage.removeItem("ptitblog_admin_token");
+    navigate("/login");
   };
 
   return (
@@ -19,6 +21,7 @@ const Layout = () => {
           className="h-14 w-auto object-contain cursor-pointer"
           onClick={() => navigate("/")}
         />
+
         <button
           onClick={logout}
           className="text-sm px-8 py-2 bg-primary text-white rounded-full cursor-pointer"
@@ -26,6 +29,7 @@ const Layout = () => {
           Logout
         </button>
       </div>
+
       <div className="flex h-[calc(100vh-70px)]">
         <Sidebar />
         <Outlet />
