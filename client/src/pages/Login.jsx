@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import Navbar from "../../components/Navbar";
-import Footer from "../../components/Footer";
-import { assets } from "../../assets/assets";
-import { useAuth } from "../../context/AuthContext";
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
+import { assets } from "../assets/assets";
+import { useAuth } from "../context/AuthContext";
 
 const UserLogin = () => {
   const navigate = useNavigate();

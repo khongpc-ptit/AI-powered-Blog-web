@@ -3,12 +3,45 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { assets } from "../assets/assets";
-import { useAuth } from "../context/AuthContext";
+
+const demoAccounts = [
+  {
+    id: "super-001",
+    name: "Super Admin",
+    email: "superadmin@gmail.com",
+    password: "123456",
+    role: "super_admin",
+    type: "admin",
+  },
+  {
+    id: "admin-001",
+    name: "Admin",
+    email: "admin@gmail.com",
+    password: "123456",
+    role: "admin",
+    type: "admin",
+  },
+  {
+    id: "content-001",
+    name: "Content Manager",
+    email: "content@gmail.com",
+    password: "123456",
+    role: "content_manager",
+    type: "admin",
+  },
+  {
+    id: "blogger-001",
+    name: "Blogger",
+    email: "blogger@gmail.com",
+    password: "123456",
+    role: "blogger",
+    type: "admin",
+  },
+];
 
 const UserLogin = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
 
   const redirectPath =
     new URLSearchParams(location.search).get("redirect") || "/";
@@ -16,25 +49,46 @@ const UserLogin = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
 
-    // Sau này nối backend thì thay đoạn này bằng API login và check role admin.
-    if (email === "admin@gmail.com" && password === "123456") {
+    const account = demoAccounts.find(
+      (item) =>
+        item.email.toLowerCase() === email.trim().toLowerCase() &&
+        item.password === password,
+    );
+
+    if (!account) {
+      setError("Email hoặc mật khẩu không đúng.");
+      return;
+    }
+
+    const currentUser = {
+      id: account.id,
+      name: account.name,
+      email: account.email,
+      role: account.role,
+      type: account.type,
+    };
+
+    localStorage.setItem("currentUser", JSON.stringify(currentUser));
+    localStorage.setItem("user", JSON.stringify(currentUser));
+    localStorage.setItem("isLoggedIn", "true");
+
+    if (account.type === "admin") {
+      localStorage.setItem("isAdmin", "true");
       localStorage.setItem("ptitblog_admin_token", "mock_admin_token");
       navigate("/admin");
       return;
     }
 
-    // User login
-    const result = login(email, password);
-
-    if (!result.success) {
-      alert(result.message || "Email hoặc mật khẩu không đúng");
-      return;
-    }
-
-    navigate(redirectPath);
+    localStorage.setItem("isAdmin", "false");
+    localStorage.removeItem("ptitblog_admin_token");
+    navigate(redirectPath === "/" ? "/profile" : redirectPath);
   };
 
   return (
@@ -73,15 +127,32 @@ const UserLogin = () => {
 
             <div className="flex flex-col">
               <label>Password:</label>
-              <input
-                onChange={(e) => setPassword(e.target.value)}
-                value={password}
-                type="password"
-                required
-                placeholder="Your password"
-                className="border-b-2 border-gray-300 outline-none mb-6 py-2 focus:border-primary"
-              />
+
+              <div className="relative mb-4">
+                <input
+                  onChange={(e) => setPassword(e.target.value)}
+                  value={password}
+                  type={showPassword ? "text" : "password"}
+                  required
+                  placeholder="Your password"
+                  className="w-full border-b-2 border-gray-300 outline-none py-2 pr-16 focus:border-primary"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 text-xs text-primary cursor-pointer"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
+
+            {error && (
+              <p className="mb-4 text-sm text-red-500 bg-red-50 border border-red-100 rounded px-3 py-2">
+                {error}
+              </p>
+            )}
 
             <button
               type="submit"
@@ -98,9 +169,13 @@ const UserLogin = () => {
             </Link>
           </p>
 
-          <p className="text-center text-xs text-gray-400 mt-4">
-            Admin demo: admin@gmail.com / 123456
-          </p>
+          <div className="mt-6 text-xs text-gray-500 bg-gray-50 border rounded p-3 leading-6">
+            <p className="font-medium text-gray-700 mb-1">Demo accounts:</p>
+            <p>Super Admin: superadmin@gmail.com / 123456</p>
+            <p>Admin: admin@gmail.com / 123456</p>
+            <p>Content Manager: content@gmail.com / 123456</p>
+            <p>Blogger: blogger@gmail.com / 123456</p>
+          </div>
         </div>
       </div>
 

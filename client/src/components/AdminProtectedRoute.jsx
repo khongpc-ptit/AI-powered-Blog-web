@@ -1,11 +1,16 @@
 import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
+import { getCurrentUser, isAdminRole } from "../utils/permission";
 
 const AdminProtectedRoute = () => {
-  const adminToken = localStorage.getItem("ptitblog_admin_token");
+  const currentUser = getCurrentUser();
 
-  if (!adminToken) {
+  if (!currentUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (!isAdminRole(currentUser)) {
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;
