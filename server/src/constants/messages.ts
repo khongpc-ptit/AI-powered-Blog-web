@@ -27,10 +27,12 @@ export const USER_MESSAGES = {
   USER_NOT_FOUND: 'User not found',
   LOGIN_SUCCESS: 'Login successful',
   EMAIL_OR_PASSWORD_INVALID: 'Email or password is invalid',
-  ACCESS_TOKEN_REQUIRED: 'Access token is required',
+  ACCESS_TOKEN_ISREQUIRED: 'Access token is required',
   //register
   REGISTER_SUCCESS: 'User registered successfully',
   //refresh token
-  REFRESH_TOKEN_NOT_EMPTY: 'Refresh token cannot be empty',
-  REFRESH_TOKEN_NOT_EXISTS: 'Refresh token does not exist'
+  REFRESH_TOKEN_ISREQUIRED: 'Refresh token cannot be empty',
+  REFRESH_TOKEN_NOT_EXISTS: 'Refresh token does not exist',
+  REFRESH_TOKEN_INVALID: 'Refresh token is invalid',
+  LOGOUT_SUCCESS: 'Logout success'
 }

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { ParamsDictionary } from 'express-serve-static-core'
-import { UserReqRegister } from '~/models/requests/UserReqRegister'
+import { logoutReqBody, UserReqRegister } from '~/models/requests/UserReqRegister'
 import authService from '~/services/auth.services'
 import User from '~/models/schemas/User.schema'
 import { USER_MESSAGES } from '~/constants/messages'
@@ -13,4 +13,9 @@ export const loginController = async (req: Request, res: Response) => {
   const user = req.user as User // đã thêm ở file type.d.ts và user được truyền ở checkschema qua
   const result = await authService.login(user, req.body.password)
   return res.json({ message: USER_MESSAGES.LOGIN_SUCCESS, result })
+}
+export const logoutController = async (req: Request<ParamsDictionary, any, logoutReqBody>, res: Response) => {
+  const { refresh_token } = req.body
+  const result = await authService.logout(refresh_token)
+  return res.json(result)
 }

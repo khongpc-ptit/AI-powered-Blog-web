@@ -1,4 +1,5 @@
 import { checkSchema } from 'express-validator'
+import { Request } from 'express'
 import { USER_MESSAGES } from '~/constants/messages'
 import authService from '~/services/auth.services'
 import { validate } from '~/utils/validation'
@@ -6,6 +7,8 @@ import databaseService from '~/services/database.services'
 import { errorWithStatus } from '~/models/Error'
 import HTTP_STATUS from '~/constants/httpStatus'
 import { comparePassword } from '~/utils/bcrypt'
+import { verifyToken } from '~/utils/jwt'
+import { JsonWebTokenError } from 'jsonwebtoken'
 export const registerValidator = validate(
   checkSchema(
     {
@@ -102,6 +105,7 @@ export const registerValidator = validate(
     ['body'] //chỉ định nơi mà các trường dữ liệu được lấy lên để validate
   )
 )
+// lúc ktra email sẽ kiểm tra luôn là có tài khoản nhập có đúng không
 export const loginValidator = validate(
   checkSchema(
     {
@@ -159,10 +163,85 @@ export const loginValidator = validate(
                 status: HTTP_STATUS.UNAUTHORIZED
               })
             }
-            req.user = user
+            ;(req as Request).user = user
             return true // báo cho biết là trường này hợp lệ
           },
           bail: true
+        }
+      }
+    },
+    ['body']
+  )
+)
+// check tồn tại, đecode và gắn vào req
+export const accessTokenValidator = validate(
+  checkSchema(
+    {
+      Authorization: {
+        custom: {
+          options: async (value: string, { req }) => {
+            const access_token = value.split(' ')[1] // Bearer <token>
+            if (!access_token) {
+              throw new errorWithStatus({
+                message: USER_MESSAGES.ACCESS_TOKEN_ISREQUIRED,
+                status: HTTP_STATUS.UNAUTHORIZED
+              })
+            }
+            try {
+              const decoded_authorization = await verifyToken({ token: access_token })
+              ;(req as Request).decoded_authorization = decoded_authorization
+            } catch (error) {
+              throw new errorWithStatus({
+                message: (error as JsonWebTokenError).message,
+                status: HTTP_STATUS.UNAUTHORIZED
+              })
+            }
+
+            return true
+          },
+          bail: true
+        }
+      }
+    },
+    ['headers']
+  )
+)
+//check có gửi lên không, xem có tồn tại trong db không, verify và gắn vào req
+export const refreshTokenValidator = validate(
+  checkSchema(
+    {
+      refresh_token: {
+        in: 'body',
+        notEmpty: {
+          errorMessage: USER_MESSAGES.REFRESH_TOKEN_ISREQUIRED,
+          bail: true
+        },
+        custom: {
+          options: async (value: string, { req }) => {
+            try {
+              const [decode_refresh_token, refreshToken] = await Promise.all([
+                verifyToken({ token: value }),
+                databaseService.refreshTokens.findOne({ token: value })
+              ])
+              if (!refreshToken) {
+                throw new errorWithStatus({
+                  message: USER_MESSAGES.REFRESH_TOKEN_NOT_EXISTS,
+                  status: HTTP_STATUS.UNAUTHORIZED
+                })
+              }
+              ;(req as Request).decoded_refresh_token = decode_refresh_token
+            } catch (error) {
+              if (error instanceof JsonWebTokenError) {
+                throw new errorWithStatus({
+                  message: error.message, //verify sai nhảy qua
+                  status: HTTP_STATUS.UNAUTHORIZED
+                })
+              }
+              throw error
+            }
+
+            return true
+          }
         }
       }
     },
