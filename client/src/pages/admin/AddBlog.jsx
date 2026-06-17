@@ -1,13 +1,14 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { assets, blogCategories, blog_data } from "../../assets/assets";
+import { useState } from "react";
 import Quill from "quill";
+import { useRef } from "react";
+import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import "quill/dist/quill.snow.css";
 
 const AddBlog = () => {
   const editorRef = useRef(null);
   const quillRef = useRef(null);
-
   const [searchParams] = useSearchParams();
   const blogId = searchParams.get("id");
   const isEditMode = !!blogId;
@@ -19,10 +20,12 @@ const AddBlog = () => {
   const [category, setCategory] = useState("Startup");
   const [isPublished, setIsPublished] = useState(false);
   const [description, setDescription] = useState("");
-
   const onSubmitHandler = async (e) => {
     e.preventDefault();
-
+    // TODO: Backend sẽ xử lý logic submit
+    // Khi backend ready, gọi API tương ứng:
+    // - Nếu isEditMode: PUT /api/admin/blogs/:id
+    // - Nếu không: POST /api/admin/blogs
     console.log("Form submitted:", {
       title,
       subTitle,
@@ -37,6 +40,7 @@ const AddBlog = () => {
     // TODO: Backend sẽ implement AI content generation
   };
 
+  // Init Quill editor
   useEffect(() => {
     if (!quillRef.current && editorRef.current) {
       quillRef.current = new Quill(editorRef.current, {
@@ -47,13 +51,22 @@ const AddBlog = () => {
       quillRef.current.on("text-change", () => {
         setDescription(quillRef.current.root.innerHTML);
       });
+
+      // Listen to text change to update description state
+      quillRef.current.on("text-change", () => {
+        if (quillRef.current) {
+          setDescription(quillRef.current.root.innerHTML);
+        }
+      });
     }
   }, []);
 
+  // Load blog data khi ở chế độ sửa
   useEffect(() => {
     if (isEditMode) {
+      // TODO: Khi backend ready, gọi API GET /api/admin/blogs/:id
+      // Hiện tại dùng mock data để demo
       const blog = blog_data.find((b) => b._id === blogId);
-
       if (blog) {
         setTitle(blog.title || "");
         setSubTitle(blog.subTitle || "");
@@ -65,6 +78,7 @@ const AddBlog = () => {
           setImagePreview(blog.image);
         }
 
+        // Set content cho Quill editor
         if (quillRef.current) {
           quillRef.current.root.innerHTML = blog.description || "";
         }
@@ -90,7 +104,6 @@ const AddBlog = () => {
           <input
             onChange={(e) => {
               const file = e.target.files[0];
-
               if (file) {
                 setImage(file);
                 setImagePreview(URL.createObjectURL(file));
@@ -143,11 +156,13 @@ const AddBlog = () => {
           name="category"
           className="mt-2 px-3 py-2 border text-gray-500 border-gray-300 outline-none rounded"
         >
-          {blogCategories.map((item, index) => (
-            <option key={index} value={item}>
-              {item}
-            </option>
-          ))}
+          {blogCategories.map((item, index) => {
+            return (
+              <option key={index} value={item}>
+                {item}
+              </option>
+            );
+          })}
         </select>
 
         <div className="flex gap-2 mt-4">
