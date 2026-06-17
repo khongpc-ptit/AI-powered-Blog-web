@@ -45,6 +45,11 @@ const AddBlog = () => {
     if (!quillRef.current && editorRef.current) {
       quillRef.current = new Quill(editorRef.current, {
         theme: "snow",
+        placeholder: "Write blog description here...",
+      });
+
+      quillRef.current.on("text-change", () => {
+        setDescription(quillRef.current.root.innerHTML);
       });
 
       // Listen to text change to update description state
@@ -84,16 +89,18 @@ const AddBlog = () => {
   return (
     <form
       onSubmit={onSubmitHandler}
-      className="flex-1 bg-blue-50/50 text-gray-600 h-full overflow-scroll"
+      className="flex-1 bg-blue-50/50 text-gray-600 h-full overflow-y-auto"
     >
-      <div className="bg-white w-full max-w-3xl p-4 md:p-10 sm:m-10 shadow rounded">
-        <p> Upload thumbnail</p>
+      <div className="bg-white w-full max-w-2xl p-4 md:p-8 sm:m-8 shadow rounded">
+        <p>Upload thumbnail</p>
+
         <label htmlFor="image">
           <img
             src={imagePreview || assets.upload_area}
             alt=""
-            className="mt-2 h-16 rounded cursor-pointer"
+            className="mt-2 h-14 rounded cursor-pointer object-cover"
           />
+
           <input
             onChange={(e) => {
               const file = e.target.files[0];
@@ -107,6 +114,7 @@ const AddBlog = () => {
             hidden
           />
         </label>
+
         <p className="mt-4">Blog Title</p>
         <input
           type="text"
@@ -116,6 +124,7 @@ const AddBlog = () => {
           onChange={(e) => setTitle(e.target.value)}
           value={title}
         />
+
         <p className="mt-4">Sub Title</p>
         <input
           type="text"
@@ -125,17 +134,21 @@ const AddBlog = () => {
           onChange={(e) => setSubTitle(e.target.value)}
           value={subTitle}
         />
-        <p className="mt-4">Blog Description</p>
-        <div className="max-w-lg h-74 pb-16 sm:pb-10 pt-2 relative">
-          <div ref={editorRef}></div>
+
+        <p className="mt-4 mb-2">Blog Description</p>
+
+        <div className="w-full max-w-lg relative">
+          <div ref={editorRef} className="bg-white"></div>
+
           <button
             type="button"
             onClick={generateContent}
-            className="absolute bottom-1 right-2 ml-2 text-xs text-white bg-black/70 px-4 py-1.5 rounded hover:underline cursor--pointer"
+            className="mt-3 text-xs text-white bg-black/70 px-4 py-2 rounded hover:bg-black/80 cursor-pointer"
           >
             Generate with AI
           </button>
         </div>
+
         <p className="mt-4">Blog Category</p>
         <select
           value={category}
@@ -151,6 +164,7 @@ const AddBlog = () => {
             );
           })}
         </select>
+
         <div className="flex gap-2 mt-4">
           <p>Publish Now</p>
           <input
@@ -160,6 +174,7 @@ const AddBlog = () => {
             onChange={(e) => setIsPublished(e.target.checked)}
           />
         </div>
+
         <button
           type="submit"
           className="mt-8 w-40 h-10 bg-primary text-white rounded cursor-pointer text-sm"
