@@ -57,3 +57,12 @@ export const USER_MESSAGES = {
   CONFIRM_PASSWORD_MUST_MATCH: 'Confirm password must match the new password',
   password_INCORRECT: 'Old password is incorrect'
 }
+
+export const BLOG_MESSAGES = {
+  GET_CATEGORIES_SUCCESS: 'Get categories successfully',
+  GET_BLOGS_SUCCESS: 'Get blogs successfully',
+  GET_BLOG_SUCCESS: 'Get blog successfully',
+  BLOG_NOT_FOUND: 'Blog not found',
+  GET_COMMENTS_SUCCESS: 'Get comments successfully',
+  ADD_COMMENT_SUCCESS: 'Add comment successfully'
+}
