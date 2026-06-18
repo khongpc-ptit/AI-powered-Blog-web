@@ -1,10 +1,11 @@
 import React from "react";
 import { Routes, Route } from "react-router-dom";
+import "quill/dist/quill.snow.css";
 
 import Home from "./pages/Home";
 import Blog from "./pages/Blog";
 
-import UserLogin from "./pages/Login";
+import UserLogin from "./pages/UserLogin";
 import UserRegister from "./pages/user/UserRegister";
 import UserProfile from "./pages/user/UserProfile";
 
@@ -21,7 +22,8 @@ import Categories from "./pages/admin/Categories";
 import Users from "./pages/admin/Users";
 import AccountAdmin from "./pages/admin/AccountAdmin";
 import Permissions from "./pages/admin/Permissions";
-import "quill/dist/quill.snow.css";
+
+import { PERMISSIONS } from "./constants/rbac";
 
 const App = () => {
   return (
@@ -48,13 +50,89 @@ const App = () => {
       <Route element={<AdminProtectedRoute />}>
         <Route path="/admin" element={<Layout />}>
           <Route index element={<Dashboard />} />
-          <Route path="listBlog" element={<ListBlog />} />
-          <Route path="addBlog" element={<AddBlog />} />
-          <Route path="comments" element={<Comments />} />
-          <Route path="categories" element={<Categories />} />
-          <Route path="users" element={<Users />} />
-          <Route path="accountadmin" element={<AccountAdmin />} />
-          <Route path="permissions" element={<Permissions />} />
+
+          <Route
+            path="addBlog"
+            element={
+              <ProtectedPermissionRoute permissions={[PERMISSIONS.CREATE_POST]}>
+                <AddBlog />
+              </ProtectedPermissionRoute>
+            }
+          />
+
+          <Route
+            path="listBlog"
+            element={
+              <ProtectedPermissionRoute
+                permissions={[
+                  PERMISSIONS.UPDATE_POST,
+                  PERMISSIONS.DELETE_POST,
+                  PERMISSIONS.CHANGE_POST_STATUS,
+                ]}
+              >
+                <ListBlog />
+              </ProtectedPermissionRoute>
+            }
+          />
+
+          <Route
+            path="comments"
+            element={
+              <ProtectedPermissionRoute
+                permissions={[PERMISSIONS.DELETE_COMMENT]}
+              >
+                <Comments />
+              </ProtectedPermissionRoute>
+            }
+          />
+
+          <Route
+            path="categories"
+            element={
+              <ProtectedPermissionRoute
+                permissions={[
+                  PERMISSIONS.CREATE_CATEGORY,
+                  PERMISSIONS.UPDATE_CATEGORY,
+                  PERMISSIONS.DELETE_CATEGORY,
+                ]}
+              >
+                <Categories />
+              </ProtectedPermissionRoute>
+            }
+          />
+
+          <Route
+            path="users"
+            element={
+              <ProtectedPermissionRoute
+                permissions={[PERMISSIONS.UPDATE_USER, PERMISSIONS.DELETE_USER]}
+              >
+                <Users />
+              </ProtectedPermissionRoute>
+            }
+          />
+
+          <Route
+            path="accountadmin"
+            element={
+              <ProtectedPermissionRoute
+                permissions={[PERMISSIONS.MANAGE_ADMIN]}
+              >
+                <AccountAdmin />
+              </ProtectedPermissionRoute>
+            }
+          />
+
+          <Route
+            path="permissions"
+            element={
+              <ProtectedPermissionRoute
+                permissions={[PERMISSIONS.MANAGE_PERMISSION]}
+              >
+                <Permissions />
+              </ProtectedPermissionRoute>
+            }
+          />
         </Route>
       </Route>
     </Routes>
