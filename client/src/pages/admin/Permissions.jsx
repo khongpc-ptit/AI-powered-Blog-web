@@ -13,7 +13,6 @@ import {
   getRolePermissions,
   isSuperAdmin,
   makeRoleCode,
-  resetRolePermissions,
   saveRolePermissions,
 } from "../../utils/permission";
 
@@ -125,6 +124,7 @@ const Permissions = () => {
     const updatedRoles = getAllRoles();
 
     setRolesMap(updatedRoles);
+
     setRolePermissions((prev) => ({
       ...prev,
       [result.role.code]: [],
@@ -163,6 +163,7 @@ const Permissions = () => {
     }
 
     const updatedRoles = getAllRoles();
+
     setRolesMap(updatedRoles);
 
     setRolePermissions((prev) => {
@@ -199,32 +200,6 @@ const Permissions = () => {
     setMessage("Đã lưu thay đổi phân quyền thành công.");
   };
 
-  const handleResetDefault = () => {
-    if (!canEdit) return;
-
-    const confirmReset = window.confirm(
-      "Bạn có chắc muốn đưa toàn bộ quyền về mặc định không? Role tự tạo vẫn được giữ lại nhưng quyền sẽ bị reset.",
-    );
-
-    if (!confirmReset) return;
-
-    resetRolePermissions();
-
-    const defaultData = {};
-
-    roles.forEach((role) => {
-      defaultData[role.code] = role.permissions || [];
-    });
-
-    defaultData[ROLE_CODES.SUPER_ADMIN] =
-      DEFAULT_ROLES[ROLE_CODES.SUPER_ADMIN].permissions;
-
-    setRolePermissions(defaultData);
-
-    setError("");
-    setMessage("Đã reset quyền về mặc định.");
-  };
-
   const countPermissionsByRole = (roleCode) => {
     return rolePermissions[roleCode]?.length || 0;
   };
@@ -236,10 +211,6 @@ const Permissions = () => {
           <h1 className="text-2xl font-semibold text-gray-800">
             Roles & Permissions
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Super Admin có thể tạo role mới và phân quyền trực tiếp trên giao
-            diện.
-          </p>
         </div>
 
         <div className="flex flex-wrap gap-3">
@@ -254,19 +225,6 @@ const Permissions = () => {
             }`}
           >
             Create Role New
-          </button>
-
-          <button
-            type="button"
-            onClick={handleResetDefault}
-            disabled={!canEdit}
-            className={`px-4 py-2 rounded text-sm border ${
-              canEdit
-                ? "bg-white text-gray-700 cursor-pointer hover:bg-gray-50"
-                : "bg-gray-100 text-gray-400 cursor-not-allowed"
-            }`}
-          >
-            Reset Default
           </button>
 
           <button
@@ -305,13 +263,11 @@ const Permissions = () => {
       <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-6">
         {/* Role list */}
         <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden h-fit">
-          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <div>
-              <h2 className="font-semibold text-gray-800">Role List</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Chọn role cần phân quyền.
-              </p>
-            </div>
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-800">Role List</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Chọn role cần phân quyền.
+            </p>
           </div>
 
           <div className="p-3 flex flex-col gap-2 max-h-[680px] overflow-y-auto">
@@ -400,8 +356,7 @@ const Permissions = () => {
 
           {isSelectedRoleLocked && (
             <div className="m-5 bg-orange-50 border border-orange-100 text-orange-600 rounded-lg p-4 text-sm">
-              Super Admin là role toàn quyền và bị khóa, không thể chỉnh quyền
-              trực tiếp trên giao diện.
+              Super Admin là role toàn quyền và bị khóa.
             </div>
           )}
 
