@@ -4,37 +4,36 @@ import Footer from "../../components/Footer";
 import { useAuth } from "../../context/AuthContext";
 import { assets } from "../../assets/assets";
 
-const currentYear = new Date().getFullYear();
-
 const UserProfile = () => {
   const { user, updateProfile, changePassword } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
   const [profileForm, setProfileForm] = useState({
     name: user?.name || "",
-    email: user?.email || "",
-    yearOfBirth: user?.yearOfBirth || "",
-    address: user?.address || "",
-    phone: user?.phone || "",
+    date_of_birth: user?.date_of_birth || "",
+    location: user?.location || "",
   });
   const [passwordForm, setPasswordForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
+    password: "",
+    new_password: "",
+    confirm_password: "",
   });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
   const handleProfileChange = (e) => {
     setProfileForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setMessage("");
     setError("");
+    setErrors((prev) => ({ ...prev, [e.target.name]: "" }));
   };
 
   const handlePasswordChange = (e) => {
     setPasswordForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setMessage("");
     setError("");
+    setErrors({});
   };
 
   const handleUpdateProfile = async (e) => {
@@ -42,12 +41,22 @@ const UserProfile = () => {
     setLoading(true);
     setError("");
     setMessage("");
+    setErrors({});
 
     try {
       await updateProfile(profileForm);
       setMessage("Cập nhật thông tin tài khoản thành công.");
     } catch (err) {
-      setError(err.message || "Cập nhật thất bại.");
+      if (err.errors) {
+        const fieldErrors = {};
+        Object.keys(err.errors).forEach((field) => {
+          fieldErrors[field] = err.errors[field].msg;
+        });
+        setErrors(fieldErrors);
+        setError("Vui lòng kiểm tra lại thông tin.");
+      } else {
+        setError(err.message || "Cập nhật thất bại.");
+      }
     } finally {
       setLoading(false);
     }
@@ -56,25 +65,38 @@ const UserProfile = () => {
   const handleChangePassword = async (e) => {
     e.preventDefault();
 
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setError("Mật khẩu mới nhập lại không khớp.");
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      setErrors({ confirm_password: "Mật khẩu mới nhập lại không khớp." });
       return;
     }
 
     setLoading(true);
     setError("");
     setMessage("");
+    setErrors({});
 
     try {
-      await changePassword(passwordForm);
+      await changePassword({
+        password: passwordForm.password,
+        new_password: passwordForm.new_password,
+        confirm_password: passwordForm.confirm_password,
+      });
       setPasswordForm({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
+        password: "",
+        new_password: "",
+        confirm_password: "",
       });
       setMessage("Đổi mật khẩu thành công.");
     } catch (err) {
-      setError(err.message || "Đổi mật khẩu thất bại.");
+      if (err.errors) {
+        const fieldErrors = {};
+        Object.keys(err.errors).forEach((field) => {
+          fieldErrors[field] = err.errors[field].msg;
+        });
+        setErrors(fieldErrors);
+      } else {
+        setError(err.message || "Đổi mật khẩu thất bại.");
+      }
     } finally {
       setLoading(false);
     }
@@ -115,6 +137,7 @@ const UserProfile = () => {
                       setActiveTab("profile");
                       setError("");
                       setMessage("");
+                      setErrors({});
                     }}
                     className={`px-4 py-2 rounded-full cursor-pointer transition-all ${
                       activeTab === "profile"
@@ -129,6 +152,7 @@ const UserProfile = () => {
                       setActiveTab("password");
                       setError("");
                       setMessage("");
+                      setErrors({});
                     }}
                     className={`px-4 py-2 rounded-full cursor-pointer transition-all ${
                       activeTab === "password"
@@ -142,15 +166,15 @@ const UserProfile = () => {
               </div>
             </div>
 
-            {(message || error) && (
-              <p
-                className={`mb-5 rounded-lg border px-4 py-3 text-sm ${
-                  message
-                    ? "border-green-200 bg-green-50 text-green-600"
-                    : "border-red-200 bg-red-50 text-red-600"
-                }`}
-              >
-                {message || error}
+            {message && (
+              <p className="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600">
+                {message}
+              </p>
+            )}
+
+            {error && (
+              <p className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {error}
               </p>
             )}
 
@@ -176,57 +200,63 @@ const UserProfile = () => {
                     onChange={handleProfileChange}
                     type="text"
                     required
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                    disabled={loading}
+                    className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                      errors.name ? "border-red-500" : "border-gray-300"
+                    }`}
                   />
+                  {errors.name && (
+                    <p className="mt-1 text-xs text-red-500">{errors.name}</p>
+                  )}
                 </div>
 
                 <div>
                   <label className="text-sm font-medium">Email</label>
                   <input
                     name="email"
-                    value={profileForm.email}
+                    value={user?.email || ""}
                     type="email"
                     disabled
                     className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-400 outline-none"
                   />
                   <p className="mt-1 text-xs text-gray-400">
-                    Email dùng để đăng nhập nên không chỉnh ở frontend mock.
+                    Email không thể thay đổi.
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Year of birth</label>
+                  <label className="text-sm font-medium">Date of birth</label>
                   <input
-                    name="yearOfBirth"
-                    value={profileForm.yearOfBirth}
+                    name="date_of_birth"
+                    value={profileForm.date_of_birth}
                     onChange={handleProfileChange}
-                    type="number"
-                    min="1900"
-                    max={currentYear}
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                    type="date"
+                    disabled={loading}
+                    className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                      errors.date_of_birth ? "border-red-500" : "border-gray-300"
+                    }`}
                   />
+                  {errors.date_of_birth && (
+                    <p className="mt-1 text-xs text-red-500">{errors.date_of_birth}</p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Phone</label>
+                  <label className="text-sm font-medium">Location</label>
                   <input
-                    name="phone"
-                    value={profileForm.phone}
-                    onChange={handleProfileChange}
-                    type="tel"
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="text-sm font-medium">Address</label>
-                  <input
-                    name="address"
-                    value={profileForm.address}
+                    name="location"
+                    value={profileForm.location}
                     onChange={handleProfileChange}
                     type="text"
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                    disabled={loading}
+                    placeholder="Your location"
+                    className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                      errors.location ? "border-red-500" : "border-gray-300"
+                    }`}
                   />
+                  {errors.location && (
+                    <p className="mt-1 text-xs text-red-500">{errors.location}</p>
+                  )}
                 </div>
 
                 <button
@@ -255,26 +285,38 @@ const UserProfile = () => {
                       Current password
                     </label>
                     <input
-                      name="currentPassword"
-                      value={passwordForm.currentPassword}
+                      name="password"
+                      value={passwordForm.password}
                       onChange={handlePasswordChange}
                       type="password"
                       required
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                      disabled={loading}
+                      className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                        errors.password ? "border-red-500" : "border-gray-300"
+                      }`}
                     />
+                    {errors.password && (
+                      <p className="mt-1 text-xs text-red-500">{errors.password}</p>
+                    )}
                   </div>
 
                   <div>
                     <label className="text-sm font-medium">New password</label>
                     <input
-                      name="newPassword"
-                      value={passwordForm.newPassword}
+                      name="new_password"
+                      value={passwordForm.new_password}
                       onChange={handlePasswordChange}
                       type="password"
                       required
-                      minLength={6}
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                      disabled={loading}
+                      placeholder="At least 6 characters with uppercase, lowercase, number and symbol"
+                      className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                        errors.new_password ? "border-red-500" : "border-gray-300"
+                      }`}
                     />
+                    {errors.new_password && (
+                      <p className="mt-1 text-xs text-red-500">{errors.new_password}</p>
+                    )}
                   </div>
 
                   <div>
@@ -282,14 +324,19 @@ const UserProfile = () => {
                       Confirm new password
                     </label>
                     <input
-                      name="confirmPassword"
-                      value={passwordForm.confirmPassword}
+                      name="confirm_password"
+                      value={passwordForm.confirm_password}
                       onChange={handlePasswordChange}
                       type="password"
                       required
-                      minLength={6}
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                      disabled={loading}
+                      className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                        errors.confirm_password ? "border-red-500" : "border-gray-300"
+                      }`}
                     />
+                    {errors.confirm_password && (
+                      <p className="mt-1 text-xs text-red-500">{errors.confirm_password}</p>
+                    )}
                   </div>
 
                   <button
