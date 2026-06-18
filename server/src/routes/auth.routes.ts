@@ -6,7 +6,12 @@ import {
   accessTokenValidator,
   refreshTokenValidator
 } from '~/middlewares/auth.middleware'
-import { registerController, loginController, logoutController } from '~/controllers/auth.controllers'
+import {
+  registerController,
+  loginController,
+  logoutController,
+  refreshAccessTokenController
+} from '~/controllers/auth.controllers'
 import { wrapRequestHandler } from '~/utils/handler'
 
 /**
@@ -29,5 +34,13 @@ authRouter.post('/login', loginValidator, loginController)
  * Endpoint: /logout
  * Request Body: { email: string, password: string }
  */
-authRouter.post('/logout', accessTokenValidator, refreshTokenValidator, wrapRequestHandler(logoutController))
+authRouter.post('/logout', refreshTokenValidator, wrapRequestHandler(logoutController))
+/**
+ * Description: Route logout
+ * Method: POST
+ * Endpoint: /logout
+ * Request Body: {  refresh_token: string }
+ */
+authRouter.post('/refresh-access-token', refreshTokenValidator, wrapRequestHandler(refreshAccessTokenController))
+
 export default authRouter
