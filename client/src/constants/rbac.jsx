@@ -118,8 +118,7 @@ export const DEFAULT_ROLES = {
   [ROLE_CODES.ADMIN]: {
     code: ROLE_CODES.ADMIN,
     label: "Admin",
-    description:
-      "Quản trị viên thường, được quản lý bài viết, danh mục, bình luận và người dùng.",
+    description: "Quản trị viên thường.",
     permissions: [
       PERMISSIONS.CREATE_POST,
       PERMISSIONS.UPDATE_POST,
@@ -140,8 +139,7 @@ export const DEFAULT_ROLES = {
   [ROLE_CODES.CONTENT_MANAGER]: {
     code: ROLE_CODES.CONTENT_MANAGER,
     label: "Content Manager",
-    description:
-      "Quản lý nội dung, được quản lý bài viết, danh mục và bình luận.",
+    description: "Quản lý nội dung.",
     permissions: [
       PERMISSIONS.CREATE_POST,
       PERMISSIONS.UPDATE_POST,
@@ -159,7 +157,7 @@ export const DEFAULT_ROLES = {
   [ROLE_CODES.BLOGGER]: {
     code: ROLE_CODES.BLOGGER,
     label: "Blogger",
-    description: "Người viết bài, chỉ được thêm và sửa bài viết.",
+    description: "Người viết bài.",
     permissions: [PERMISSIONS.CREATE_POST, PERMISSIONS.UPDATE_POST],
   },
 };
