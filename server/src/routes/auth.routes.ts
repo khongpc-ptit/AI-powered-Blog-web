@@ -5,7 +5,7 @@ import {
   loginValidator,
   accessTokenValidator,
   refreshTokenValidator
-} from '~/middlewares/auth.middleware'
+} from '~/middlewares/auth.middlewares'
 import {
   registerController,
   loginController,

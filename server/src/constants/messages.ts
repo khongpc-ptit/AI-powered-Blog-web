@@ -34,5 +34,26 @@ export const USER_MESSAGES = {
   REFRESH_TOKEN_ISREQUIRED: 'Refresh token cannot be empty',
   REFRESH_TOKEN_NOT_EXISTS: 'Refresh token does not exist',
   REFRESH_TOKEN_INVALID: 'Refresh token is invalid',
-  LOGOUT_SUCCESS: 'Logout success'
+  LOGOUT_SUCCESS: 'Logout success',
+  // profile
+  GET_PROFILE_SUCCESS: 'Get profile success',
+  // Error/Validation Messages
+  NO_DATA_TO_UPDATE: 'No valid data provided for update',
+  NAME_MUST_BE_A_STRING: 'Name must be a string',
+  NAME_LENGTH_MUST_BE_FROM_1_TO_100: 'Name length must be from 1 to 100 characters',
+  DATE_OF_BIRTH_MUST_BE_ISO8601: 'Date of birth must be a valid ISO 8601 format',
+  LOCATION_MUST_BE_A_STRING: 'Location must be a string',
+  AVATAR_MUST_BE_A_VALID_URL: 'Avatar must be a valid URL format',
+  UPDATE_PROFILE_SUCCESS: 'Update profile successfully',
+  //Change password
+  CHANGE_PASSWORD_SUCCESS: 'Change password successfully',
+  password_IS_REQUIRED: 'Old password is required',
+  NEW_PASSWORD_IS_REQUIRED: 'New password is required',
+  CONFIRM_PASSWORD_IS_REQUIRED: 'Confirm password is required',
+  PASSWORD_MUST_BE_A_STRING: 'Password must be a string',
+  PASSWORD_LENGTH_MUST_BE_FROM_6_TO_50: 'Password length must be from 6 to 50 characters',
+  PASSWORD_MUST_BE_STRONG:
+    'Password must be 6-50 characters long and contain at least 1 lowercase letter, 1 uppercase letter, 1 number, and 1 symbol',
+  CONFIRM_PASSWORD_MUST_MATCH: 'Confirm password must match the new password',
+  password_INCORRECT: 'Old password is incorrect'
 }
