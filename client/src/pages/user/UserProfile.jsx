@@ -4,16 +4,14 @@ import Footer from "../../components/Footer";
 import { useAuth } from "../../context/AuthContext";
 import { assets } from "../../assets/assets";
 
-const currentYear = new Date().getFullYear();
-
 const UserProfile = () => {
   const { user, updateProfile, changePassword } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
   const [profileForm, setProfileForm] = useState({
     name: user?.name || "",
-    yearOfBirth: user?.yearOfBirth || "",
-    address: user?.address || "",
-    phone: user?.phone || "",
+    date_of_birth: user?.date_of_birth || "",
+    location: user?.location || "",
+    avatar: user?.avatar || "",
   });
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -70,8 +68,9 @@ const UserProfile = () => {
 
     try {
       const result = await changePassword({
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword,
+        password: passwordForm.currentPassword,
+        new_password: passwordForm.newPassword,
+        confirm_password: passwordForm.confirmPassword,
       });
 
       if (result.success) {
@@ -206,36 +205,35 @@ const UserProfile = () => {
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Year of birth</label>
+                  <label className="text-sm font-medium">Date of birth</label>
                   <input
-                    name="yearOfBirth"
-                    value={profileForm.yearOfBirth}
+                    name="date_of_birth"
+                    value={profileForm.date_of_birth}
                     onChange={handleProfileChange}
-                    type="number"
-                    min="1900"
-                    max={currentYear}
+                    type="date"
                     className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
                   />
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Phone</label>
+                  <label className="text-sm font-medium">Location</label>
                   <input
-                    name="phone"
-                    value={profileForm.phone}
+                    name="location"
+                    value={profileForm.location}
                     onChange={handleProfileChange}
-                    type="tel"
+                    type="text"
                     className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="text-sm font-medium">Address</label>
+                  <label className="text-sm font-medium">Avatar URL</label>
                   <input
-                    name="address"
-                    value={profileForm.address}
+                    name="avatar"
+                    value={profileForm.avatar}
                     onChange={handleProfileChange}
-                    type="text"
+                    type="url"
+                    placeholder="https://example.com/avatar.png"
                     className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
                   />
                 </div>

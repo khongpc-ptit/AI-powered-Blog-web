@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import authService from "../services/auth.service";
+import userService from "../services/user.service";
 import { useNavigate } from "react-router-dom";
 
 const AuthContext = createContext(null);
@@ -73,52 +74,26 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = useCallback(async (profileData) => {
     try {
-      const response = await fetch("http://localhost:5000/api/blogs/profile", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-        },
-        credentials: "include",
-        body: JSON.stringify(profileData),
-      });
-
-      if (!response.ok) {
-        throw new Error("Cập nhật thất bại");
-      }
-
-      const data = await response.json();
-      const updatedUser = data.data;
+      const data = await userService.updateProfile(profileData);
+      const updatedUser = data.result;
       
       localStorage.setItem("user", JSON.stringify(updatedUser));
       setUser(updatedUser);
       
       return { success: true, user: updatedUser };
     } catch (error) {
-      return { success: false, message: error.message || "Cập nhật thất bại" };
+      const message = error.response?.data?.message || error.message || "Cập nhật thất bại";
+      return { success: false, message };
     }
   }, []);
 
-  const changePassword = useCallback(async ({ currentPassword, newPassword }) => {
+  const changePassword = useCallback(async ({ password, new_password, confirm_password }) => {
     try {
-      const response = await fetch("http://localhost:5000/api/blogs/profile/password", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
-        },
-        credentials: "include",
-        body: JSON.stringify({ currentPassword, newPassword }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Đổi mật khẩu thất bại");
-      }
-
+      await userService.changePassword({ password, new_password, confirm_password });
       return { success: true };
     } catch (error) {
-      return { success: false, message: error.message || "Đổi mật khẩu thất bại" };
+      const message = error.response?.data?.message || error.message || "Đổi mật khẩu thất bại";
+      return { success: false, message };
     }
   }, []);
 
