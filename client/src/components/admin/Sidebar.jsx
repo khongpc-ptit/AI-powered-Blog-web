@@ -60,10 +60,10 @@ const Sidebar = () => {
       permissions: [PERMISSIONS.MANAGE_ADMIN],
     },
     {
-      name: "Roles & Permissions",
+      name: "Permission-Role",
       path: "/admin/permissions",
       icon: assets.list_icon,
-      permissions: [PERMISSIONS.MANAGE_ADMIN],
+      permissions: [PERMISSIONS.MANAGE_PERMISSION],
     },
   ];
 
@@ -73,61 +73,21 @@ const Sidebar = () => {
 
   return (
     <div className="flex flex-col border-r border-gray-200 min-h-full pt-6">
-      <NavLink
-        end={true}
-        to="/admin"
-        className={({ isActive }) =>
-          `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${isActive && "bg-primary/10 border-r-4 border-primary"}`
-        }
-      >
-        <img src={assets.home_icon} alt="" className="min w-4 w-5" />
-        <p className="hidden md:inline-block">Dashboard</p>
-      </NavLink>
-      <NavLink
-        to="/admin/addBlog"
-        className={({ isActive }) =>
-          `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${isActive && "bg-primary/10 border-r-4 border-primary"}`
-        }
-      >
-        <img src={assets.add_icon} alt="" className="min w-4 w-5" />
-        <p className="hidden md:inline-block">Add Blogs</p>
-      </NavLink>
-      <NavLink
-        to="/admin/listBlog"
-        className={({ isActive }) =>
-          `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${isActive && "bg-primary/10 border-r-4 border-primary"}`
-        }
-      >
-        <img src={assets.list_icon} alt="" className="min w-4 w-5" />
-        <p className="hidden md:inline-block">Blog lists</p>
-      </NavLink>
-      <NavLink
-        to="/admin/comments"
-        className={({ isActive }) =>
-          `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${isActive && "bg-primary/10 border-r-4 border-primary"}`
-        }
-      >
-        <img src={assets.comment_icon} alt="" className="min w-4 w-5" />
-        <p className="hidden md:inline-block">Comments</p>
-      </NavLink>
-      <NavLink
-        to="/admin/categories"
-        className={({ isActive }) =>
-          `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${isActive && "bg-primary/10 border-r-4 border-primary"}`
-        }
-      >
-        <img src={assets.category_icon} alt="" className="min w-4 w-5" />
-        <p className="hidden md:inline-block">Categories</p>
-      </NavLink>
-      <NavLink
-        to="/admin/users"
-        className={({ isActive }) =>
-          `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${isActive && "bg-primary/10 border-r-4 border-primary"}`
-        }
-      >
-        <img src={assets.user_icon} alt="" className="min w-4 w-5" />
-        <p className="hidden md:inline-block">Users</p>
-      </NavLink>
+      {visibleMenuItems.map((item) => (
+        <NavLink
+          key={item.path}
+          end={item.end}
+          to={item.path}
+          className={({ isActive }) =>
+            `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${
+              isActive ? "bg-primary/10 border-r-4 border-primary" : ""
+            }`
+          }
+        >
+          <img src={item.icon} alt="" className="min-w-4 w-5" />
+          <p className="hidden md:inline-block">{item.name}</p>
+        </NavLink>
+      ))}
     </div>
   );
 };
