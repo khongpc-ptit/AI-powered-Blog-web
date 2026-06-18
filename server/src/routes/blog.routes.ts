@@ -20,6 +20,7 @@ blogRouter.get('/', wrapRequestHandler(getAllBlogsController))
 blogRouter.get('/:id', wrapRequestHandler(getBlogByIdController))
 blogRouter.get('/:id/comments', wrapRequestHandler(getBlogCommentsController))
 
+
 blogRouter.post(
   '/:id/comments',
   accessTokenValidator,

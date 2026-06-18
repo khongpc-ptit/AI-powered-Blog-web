@@ -45,7 +45,7 @@ export const getBlogCommentsController = async (req: Request, res: Response) => 
   const page = Number(req.query.page) || 1
   const limit = Number(req.query.limit) || 10
 
-  const result = await blogService.getBlogComments({ blog_id: id, page, limit })
+  const result = await blogService.getBlogComments({ blog_id: id as string, page, limit })
 
   return res.status(HTTP_STATUS.OK).json({
     message: BLOG_MESSAGES.GET_COMMENTS_SUCCESS,
@@ -63,7 +63,7 @@ export const addCommentController = async (req: Request, res: Response) => {
   const user = await databaseService.users.findOne({ _id: new ObjectId(user_id) })
   const name = user?.name || 'Anonymous'
 
-  const comment = await blogService.addComment({ blog_id: id, user_id, name, content })
+  const comment = await blogService.addComment({ blog_id: id as string, user_id, name, content })
 
   return res.status(HTTP_STATUS.CREATED).json({
     message: BLOG_MESSAGES.ADD_COMMENT_SUCCESS,

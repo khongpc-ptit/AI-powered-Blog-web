@@ -1,7 +1,7 @@
 import { ObjectId } from 'mongodb'
 
 interface BlogType {
-  _id?: string
+  _id?: ObjectId
   title: string
   subtitle: string
   description: string
@@ -12,7 +12,7 @@ interface BlogType {
   updated_at?: Date
 }
 class Blog {
-  _id?: string
+  _id?: ObjectId
   title: string
   subtitle: string
   description: string
