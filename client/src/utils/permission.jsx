@@ -211,7 +211,7 @@ export const getCurrentUser = () => {
 
     return {
       ...currentUser,
-      role: normalizeRoleCode(currentUser.role),
+      role: normalizeRoleCode(currentUser.role || currentUser.role_id),
     };
   } catch (error) {
     return null;
