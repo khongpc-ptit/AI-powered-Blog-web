@@ -8,9 +8,6 @@ interface UserType {
   password: string
   email: string
   date_of_birth: Date
-  email_verified_token?: string // jwt hoac '' nếu đã xác thực email
-  forgot_password_token?: string // jwt hoac '' nếu đã xác thực email
-  verified?: UserVerifyStatus
   role_id: ObjectId
   location?: string //optional
   avatar?: string //optional
@@ -27,9 +24,6 @@ class User {
   date_of_birth: Date
   created_at: Date
   updated_at: Date
-  email_verified_token: string // jwt hoac '' nếu đã xác thực email
-  forgot_password_token: string // jwt hoac '' nếu đã xác thực email
-  verified: UserVerifyStatus
   role_id: ObjectId
   location: string //optional
   avatar: string //optional
@@ -42,9 +36,6 @@ class User {
     this.date_of_birth = user.date_of_birth || dateNow
     this.created_at = user.created_at || dateNow
     this.updated_at = user.updated_at || dateNow
-    this.email_verified_token = user.email_verified_token || ''
-    this.forgot_password_token = user.forgot_password_token || ''
-    this.verified = user.verified || UserVerifyStatus.Unverified
     this.role_id = user.role_id
     this.location = user.location || ''
     this.avatar = user.avatar || ''

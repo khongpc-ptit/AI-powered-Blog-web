@@ -1,12 +1,13 @@
 import express from 'express'
-const userRouters = express.Router()
+import { getProfileController, updateProfileController, changePasswordController } from '~/controllers/user.controllers'
+import { accessTokenValidator } from '~/middlewares/auth.middlewares'
+import { wrapRequestHandler } from '~/utils/handler'
+import { updateProfileValidator, changePasswordValidator } from '~/middlewares/user.middlewares'
+const userRouter = express.Router()
 
-/**
- * Description: Route for user registration
- * Method: POST
- * Endpoint: /api/users/register
- * Request Body: { name: string, email: string, password: string, confirm_password: string, date_of_birth: ISO8601 string }
- */
-userRouters.post('/register')
+userRouter.use(accessTokenValidator) // check xem đã đăng nhập hay chưa
 
-export default userRouters
+userRouter.get('/profile', wrapRequestHandler(getProfileController))
+userRouter.patch('/profile', updateProfileValidator, wrapRequestHandler(updateProfileController))
+userRouter.patch('/profile/password', changePasswordValidator, wrapRequestHandler(changePasswordController))
+export default userRouter
