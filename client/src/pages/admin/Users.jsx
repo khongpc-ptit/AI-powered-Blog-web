@@ -1,139 +1,63 @@
 import React, { useEffect, useState, useMemo } from "react";
 import DataTable from "../../components/DataTable";
 import { assets } from "../../assets/assets";
-
-// Mock roles data - sau này thay bằng API
-const mockRoles = [
-  { _id: "1", name: "Super Admin" },
-  { _id: "2", name: "Admin" },
-  { _id: "3", name: "Blogger" },
-  { _id: "4", name: "User" },
-];
+import { adminUserService } from "../../services/admin.service";
+import { ROLE_OPTIONS } from "../../constants/rbac";
 
 const Users = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState("add"); // 'add' | 'edit'
+  const [modalMode, setModalMode] = useState("add");
   const [editingUser, setEditingUser] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    date_of_birth: "",
-    role_id: "",
+    yearOfBirth: "",
+    role: "",
     verified: "Unverified",
-    location: "",
-    avatar: "",
+    address: "",
   });
-
-  // Mock users data
-  const mockUsers = [
-    {
-      _id: "1",
-      name: "Nguyễn Văn A",
-      email: "nguyenvana@example.com",
-      date_of_birth: "1995-05-15",
-      role_id: "1",
-      verified: "Verified",
-      location: "Hà Nội",
-      avatar: "",
-      created_at: "2025-01-10T08:00:00.000Z",
-      updated_at: "2025-06-01T10:30:00.000Z",
-    },
-    {
-      _id: "2",
-      name: "Trần Thị B",
-      email: "tranthib@example.com",
-      date_of_birth: "1998-08-22",
-      role_id: "3",
-      verified: "Verified",
-      location: "TP. Hồ Chí Minh",
-      avatar: "",
-      created_at: "2025-02-15T09:00:00.000Z",
-      updated_at: "2025-05-20T14:00:00.000Z",
-    },
-    {
-      _id: "3",
-      name: "Lê Văn C",
-      email: "levanc@example.com",
-      date_of_birth: "2000-03-10",
-      role_id: "4",
-      verified: "Unverified",
-      location: "Đà Nẵng",
-      avatar: "",
-      created_at: "2025-03-01T10:00:00.000Z",
-      updated_at: "2025-03-01T10:00:00.000Z",
-    },
-    {
-      _id: "4",
-      name: "Phạm Thị D",
-      email: "phamthid@example.com",
-      date_of_birth: "1992-11-30",
-      role_id: "2",
-      verified: "Verified",
-      location: "Hải Phòng",
-      avatar: "",
-      created_at: "2025-04-05T11:00:00.000Z",
-      updated_at: "2025-06-10T16:00:00.000Z",
-    },
-    {
-      _id: "5",
-      name: "Hoàng Văn E",
-      email: "hoangvane@example.com",
-      date_of_birth: "1997-07-18",
-      role_id: "3",
-      verified: "Verified",
-      location: "Cần Thơ",
-      avatar: "",
-      created_at: "2025-05-12T12:00:00.000Z",
-      updated_at: "2025-05-12T12:00:00.000Z",
-    },
-  ];
 
   const fetchUsers = async () => {
     setLoading(true);
-    setUsers(mockUsers);
-    setLoading(false);
+    try {
+      const response = await adminUserService.getAll();
+      if (response.data) {
+        setUsers(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch users:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchUsers();
   }, []);
 
-  const getRoleName = (roleId) => {
-    const role = mockRoles.find((r) => r._id === roleId);
-    return role ? role.name : "Unknown";
-  };
-
-  const handleAdd = () => {
-    setModalMode("add");
-    setEditingUser(null);
-    setFormData({
-      name: "",
-      email: "",
-      date_of_birth: "",
-      role_id: "",
-      verified: "Unverified",
-      location: "",
-      avatar: "",
-    });
-    setShowModal(true);
+  const getRoleName = (role) => {
+    if (!role) return "User";
+    const roleOption = ROLE_OPTIONS.find((r) => r.code === role || r.label === role);
+    return roleOption ? roleOption.label : role;
   };
 
   const handleEdit = (user) => {
     setModalMode("edit");
     setEditingUser(user);
     setFormData({
-      name: user.name,
-      email: user.email,
-      date_of_birth: user.date_of_birth ? user.date_of_birth.split("T")[0] : "",
-      role_id: user.role_id,
-      verified: user.verified,
-      location: user.location || "",
-      avatar: user.avatar || "",
+      name: user.name || "",
+      email: user.email || "",
+      yearOfBirth: user.yearOfBirth || "",
+      role: user.role || "",
+      verified: user.verified || "Unverified",
+      address: user.address || "",
     });
+    setError("");
     setShowModal(true);
   };
 
@@ -141,33 +65,38 @@ const Users = () => {
     setDeleteConfirm(user);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteConfirm) {
-      setUsers((prev) => prev.filter((u) => u._id !== deleteConfirm._id));
+      try {
+        await adminUserService.delete(deleteConfirm._id);
+        setUsers((prev) => prev.filter((u) => u._id !== deleteConfirm._id));
+      } catch (error) {
+        console.error("Failed to delete user:", error);
+        alert("Failed to delete user");
+      }
       setDeleteConfirm(null);
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (modalMode === "add") {
-      const newUser = {
-        _id: Date.now().toString(),
-        ...formData,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      setUsers((prev) => [...prev, newUser]);
-    } else if (modalMode === "edit" && editingUser) {
-      setUsers((prev) =>
-        prev.map((u) =>
-          u._id === editingUser._id
-            ? { ...u, ...formData, updated_at: new Date().toISOString() }
-            : u
-        )
-      );
+    setError("");
+
+    try {
+      if (modalMode === "edit" && editingUser) {
+        const response = await adminUserService.update(editingUser._id, formData);
+        if (response.data) {
+          setUsers((prev) =>
+            prev.map((u) =>
+              u._id === editingUser._id ? { ...u, ...formData } : u
+            )
+          );
+        }
+      }
+      setShowModal(false);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to save user");
     }
-    setShowModal(false);
   };
 
   const columns = [
@@ -189,7 +118,7 @@ const Users = () => {
           ) : (
             <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
               <span className="text-sm font-medium text-primary">
-                {item.name.charAt(0).toUpperCase()}
+                {(item.name || "U").charAt(0).toUpperCase()}
               </span>
             </div>
           )}
@@ -206,13 +135,12 @@ const Users = () => {
       ),
     },
     {
-      field: "date_of_birth",
+      field: "yearOfBirth",
       header: "Date of Birth",
       sortable: true,
       render: (item) => {
-        if (!item.date_of_birth) return <span className="text-gray-400">N/A</span>;
-        const date = new Date(item.date_of_birth);
-        return <span className="text-gray-600">{date.toLocaleDateString()}</span>;
+        if (!item.yearOfBirth) return <span className="text-gray-400">N/A</span>;
+        return <span className="text-gray-600">{item.yearOfBirth}</span>;
       },
     },
     {
@@ -242,11 +170,11 @@ const Users = () => {
       ),
     },
     {
-      field: "created_at",
+      field: "createdAt",
       header: "Created At",
       sortable: true,
       render: (item) => {
-        const date = new Date(item.created_at);
+        const date = new Date(item.createdAt);
         return <span className="text-gray-600">{date.toLocaleDateString()}</span>;
       },
     },
@@ -277,26 +205,17 @@ const Users = () => {
     return users.map((user, index) => ({
       ...user,
       index: index + 1,
-      roleName: getRoleName(user.role_id),
+      roleName: getRoleName(user.role),
     }));
   }, [users]);
 
   return (
     <div className="flex-1 pt-5 px-5 sm:pt-12 sm:pl-1 bg-blue-50/50">
-      <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-800">Users</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Manage system users with roles and permissions.
-          </p>
-        </div>
-        <button
-          onClick={handleAdd}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer text-sm"
-        >
-          <img src={assets.add_icon} alt="" className="w-4 h-4" />
-          Add User
-        </button>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-gray-800">Users</h1>
+        <p className="text-sm text-gray-600 mt-1">
+          Manage system users with roles and permissions.
+        </p>
       </div>
 
       <DataTable
@@ -304,7 +223,7 @@ const Users = () => {
         columns={columns}
         searchPlaceholder="Search users..."
         searchableFields={["name", "email", "roleName"]}
-        defaultSortField="created_at"
+        defaultSortField="createdAt"
         defaultSortOrder="desc"
         loading={loading}
         emptyMessage="No users found."
@@ -316,7 +235,7 @@ const Users = () => {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b">
               <h3 className="text-lg font-semibold text-gray-800">
-                {modalMode === "add" ? "Add New User" : "Edit User"}
+                Edit User
               </h3>
               <button
                 onClick={() => setShowModal(false)}
@@ -328,6 +247,11 @@ const Users = () => {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-5">
+              {error && (
+                <div className="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-600 text-sm">
+                  {error}
+                </div>
+              )}
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -357,29 +281,18 @@ const Users = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date of Birth
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.date_of_birth}
-                    onChange={(e) => setFormData({ ...formData, date_of_birth: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Role *
                   </label>
                   <select
                     required
-                    value={formData.role_id}
-                    onChange={(e) => setFormData({ ...formData, role_id: e.target.value })}
+                    value={formData.role}
+                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white"
                   >
                     <option value="">Select Role</option>
-                    {mockRoles.map((role) => (
-                      <option key={role._id} value={role._id}>
-                        {role.name}
+                    {ROLE_OPTIONS.map((role) => (
+                      <option key={role.code} value={role.code}>
+                        {role.label}
                       </option>
                     ))}
                   </select>
@@ -397,30 +310,6 @@ const Users = () => {
                     <option value="Unverified">Unverified</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                    placeholder="Enter location"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Avatar URL
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.avatar}
-                    onChange={(e) => setFormData({ ...formData, avatar: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-                    placeholder="https://example.com/avatar.jpg"
-                  />
-                </div>
               </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button
@@ -434,7 +323,7 @@ const Users = () => {
                   type="submit"
                   className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
                 >
-                  {modalMode === "add" ? "Add User" : "Save Changes"}
+                  Save Changes
                 </button>
               </div>
             </form>

@@ -1,21 +1,59 @@
 import React, { useEffect, useState } from "react";
-import { blog_data } from "../../assets/assets";
 import DataTable from "../../components/DataTable";
 import { assets } from "../../assets/assets";
 import { useNavigate } from "react-router-dom";
+import { adminBlogService } from "../../services/blog.service";
 
 const ListBlog = () => {
   const [blogs, setBlogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
   const fetchBlogs = async () => {
     setLoading(true);
-    setBlogs(blog_data);
-    setLoading(false);
+    try {
+      const response = await adminBlogService.getAll();
+      if (response.data) {
+        setBlogs(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch blogs:", error);
+    } finally {
+      setLoading(false);
+    }
   };
+
   useEffect(() => {
     fetchBlogs();
   }, []);
+
+  const handlePublishToggle = async (blog) => {
+    try {
+      await adminBlogService.toggleStatus(blog._id);
+      setBlogs((prev) =>
+        prev.map((b) =>
+          b._id === blog._id ? { ...b, isPublished: !b.isPublished } : b
+        )
+      );
+    } catch (error) {
+      console.error("Failed to toggle publish status:", error);
+      alert("Failed to update blog status");
+    }
+  };
+
+  const handleDelete = async (blog) => {
+    if (!window.confirm(`Are you sure you want to delete "${blog.title}"?`)) {
+      return;
+    }
+
+    try {
+      await adminBlogService.delete(blog._id);
+      setBlogs((prev) => prev.filter((b) => b._id !== blog._id));
+    } catch (error) {
+      console.error("Failed to delete blog:", error);
+      alert("Failed to delete blog");
+    }
+  };
 
   const columns = [
     {
@@ -39,11 +77,14 @@ const ListBlog = () => {
       field: "category",
       header: "Category",
       sortable: true,
-      render: (item) => (
-        <span className="px-2 py-1 text-xs bg-primary/10 text-primary rounded-full">
-          {item.category}
-        </span>
-      ),
+      render: (item) => {
+        const categoryName = item.category?.name || item.category || "N/A";
+        return (
+          <span className="px-2 py-1 text-xs bg-primary/10 text-primary rounded-full">
+            {categoryName}
+          </span>
+        );
+      },
     },
     {
       field: "createdAt",
@@ -105,18 +146,6 @@ const ListBlog = () => {
     ...blog,
     index: index + 1,
   }));
-
-  const handlePublishToggle = (blog) => {
-    setBlogs((prev) =>
-      prev.map((b) =>
-        b._id === blog._id ? { ...b, isPublished: !b.isPublished } : b
-      )
-    );
-  };
-
-  const handleDelete = (blog) => {
-    setBlogs((prev) => prev.filter((b) => b._id !== blog._id));
-  };
 
   return (
     <div className="flex-1 pt-5 px-5 sm:pt-12 sm:pl-1 bg-blue-50/50">

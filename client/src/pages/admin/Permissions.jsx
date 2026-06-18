@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   DEFAULT_ROLES,
   PERMISSION_GROUPS,
@@ -12,6 +12,7 @@ import {
   resetRolePermissions,
   saveRolePermissions,
 } from "../../utils/permission";
+import { permissionService } from "../../services/admin.service";
 
 const roleOrder = [
   ROLE_CODES.SUPER_ADMIN,
@@ -28,18 +29,44 @@ const editableRoles = [
 
 const Permissions = () => {
   const currentUser = getCurrentUser();
-
   const [rolePermissions, setRolePermissions] = useState(() => {
     const initialData = {};
-
     roleOrder.forEach((roleCode) => {
       initialData[roleCode] = getRolePermissions(roleCode);
     });
-
     return initialData;
   });
-
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const fetchPermissions = async () => {
+    setLoading(true);
+    try {
+      const [permissionsRes, rolesRes] = await Promise.all([
+        permissionService.getAll(),
+        permissionService.getRoles(),
+      ]);
+      
+      if (rolesRes.data) {
+        rolesRes.data.forEach((role) => {
+          if (role.permissions && Array.isArray(role.permissions)) {
+            setRolePermissions((prev) => ({
+              ...prev,
+              [role.code]: role.permissions,
+            }));
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch permissions:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPermissions();
+  }, []);
 
   const canEdit = isSuperAdmin(currentUser);
 
@@ -53,11 +80,8 @@ const Permissions = () => {
 
   const canTogglePermission = (roleCode, permissionCode) => {
     if (!canEdit) return false;
-
     if (!editableRoles.includes(roleCode)) return false;
-
     if (isLockedPermission(permissionCode)) return false;
-
     return true;
   };
 
@@ -66,9 +90,7 @@ const Permissions = () => {
 
     setRolePermissions((prev) => {
       const currentPermissions = prev[roleCode] || [];
-
       const isExisting = currentPermissions.includes(permissionCode);
-
       const updatedPermissions = isExisting
         ? currentPermissions.filter((item) => item !== permissionCode)
         : [...currentPermissions, permissionCode];
@@ -82,22 +104,35 @@ const Permissions = () => {
     setMessage("");
   };
 
-  const handleSave = () => {
-    const dataToSave = {
-      [ROLE_CODES.ADMIN]: rolePermissions[ROLE_CODES.ADMIN] || [],
-      [ROLE_CODES.CONTENT_MANAGER]:
-        rolePermissions[ROLE_CODES.CONTENT_MANAGER] || [],
-      [ROLE_CODES.BLOGGER]: rolePermissions[ROLE_CODES.BLOGGER] || [],
-    };
+  const handleSave = async () => {
+    try {
+      const updatePromises = editableRoles.map(async (roleCode) => {
+        const permissions = rolePermissions[roleCode] || [];
+        try {
+          await permissionService.updateRolePermissions(roleCode, permissions);
+        } catch (error) {
+          console.error(`Failed to update permissions for ${roleCode}:`, error);
+        }
+      });
 
-    saveRolePermissions(dataToSave);
+      await Promise.all(updatePromises);
 
-    setMessage("Đã lưu thay đổi phân quyền thành công.");
+      saveRolePermissions({
+        [ROLE_CODES.ADMIN]: rolePermissions[ROLE_CODES.ADMIN] || [],
+        [ROLE_CODES.CONTENT_MANAGER]: rolePermissions[ROLE_CODES.CONTENT_MANAGER] || [],
+        [ROLE_CODES.BLOGGER]: rolePermissions[ROLE_CODES.BLOGGER] || [],
+      });
+
+      setMessage("Đã lưu thay đổi phân quyền thành công.");
+    } catch (error) {
+      console.error("Failed to save permissions:", error);
+      setMessage("Lưu thay đổi thất bại. Vui lòng thử lại.");
+    }
   };
 
   const handleResetDefault = () => {
     const confirmReset = window.confirm(
-      "Bạn có chắc muốn đưa toàn bộ quyền về mặc định không?",
+      "Bạn có chắc muốn đưa toàn bộ quyền về mặc định không?"
     );
 
     if (!confirmReset) return;
@@ -105,7 +140,6 @@ const Permissions = () => {
     resetRolePermissions();
 
     const defaultData = {};
-
     roleOrder.forEach((roleCode) => {
       defaultData[roleCode] = DEFAULT_ROLES[roleCode].permissions;
     });
@@ -113,6 +147,14 @@ const Permissions = () => {
     setRolePermissions(defaultData);
     setMessage("Đã reset quyền về mặc định.");
   };
+
+  if (loading) {
+    return (
+      <div className="flex-1 p-4 md:p-10 bg-blue-50/50 overflow-y-auto flex items-center justify-center">
+        <p className="text-gray-500">Loading permissions...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 p-4 md:p-10 bg-blue-50/50 overflow-y-auto">
@@ -256,12 +298,12 @@ const Permissions = () => {
                       {roleOrder.map((roleCode) => {
                         const checked = hasPermission(
                           roleCode,
-                          permission.code,
+                          permission.code
                         );
 
                         const disabled = !canTogglePermission(
                           roleCode,
-                          permission.code,
+                          permission.code
                         );
 
                         return (
@@ -273,7 +315,7 @@ const Permissions = () => {
                               onChange={() =>
                                 handleTogglePermission(
                                   roleCode,
-                                  permission.code,
+                                  permission.code
                                 )
                               }
                               className={`scale-125 ${
@@ -293,8 +335,6 @@ const Permissions = () => {
           </table>
         </div>
       </div>
-
-      <div className="mt-6 bg-yellow-50 border border-yellow-100 text-yellow-700 rounded-lg p-4 text-sm"></div>
     </div>
   );
 };

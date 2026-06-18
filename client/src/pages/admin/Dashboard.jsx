@@ -1,16 +1,30 @@
 import React, { useEffect, useState } from "react";
-import { assets, dashboard_data } from "../../assets/assets";
+import { assets } from "../../assets/assets";
 import BlogTableItem from "../../components/admin/BlogTableItem";
+import { dashboardService } from "../../services/admin.service";
+
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState({
     blogs: 0,
     comments: 0,
     drafts: 0,
+    users: 0,
     recentBlogs: [],
   });
+  const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = async () => {
-    setDashboardData(dashboard_data);
+    setLoading(true);
+    try {
+      const response = await dashboardService.getStats();
+      if (response.data) {
+        setDashboardData(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -23,22 +37,29 @@ const Dashboard = () => {
         <div className="flex items-center gap-4 bg-white p-4 min-w-58 rounded shadow cursor-pointer hover:scale-105 transition-all">
           <img src={assets.dashboard_icon_1} alt="" />
           <div>
-            <p>{dashboardData.blogs}</p>
+            <p>{loading ? "..." : dashboardData.blogs}</p>
             <p className="text-gray-400 font-light">Blogs</p>
           </div>
         </div>
         <div className="flex items-center gap-4 bg-white p-4 min-w-58 rounded shadow cursor-pointer hover:scale-105 transition-all">
           <img src={assets.dashboard_icon_2} alt="" />
           <div>
-            <p>{dashboardData.comments}</p>
+            <p>{loading ? "..." : dashboardData.comments}</p>
             <p className="text-gray-400 font-light">Comments</p>
           </div>
         </div>
         <div className="flex items-center gap-4 bg-white p-4 min-w-58 rounded shadow cursor-pointer hover:scale-105 transition-all">
           <img src={assets.dashboard_icon_3} alt="" />
           <div>
-            <p>{dashboardData.drafts}</p>
+            <p>{loading ? "..." : dashboardData.drafts}</p>
             <p className="text-gray-400 font-light">Drafts</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 bg-white p-4 min-w-58 rounded shadow cursor-pointer hover:scale-105 transition-all">
+          <img src={assets.user_icon} alt="" className="w-8 h-8" />
+          <div>
+            <p>{loading ? "..." : dashboardData.users}</p>
+            <p className="text-gray-400 font-light">Users</p>
           </div>
         </div>
       </div>
@@ -69,16 +90,28 @@ const Dashboard = () => {
               </tr>
             </thead>
             <tbody>
-              {dashboardData.recentBlogs.map((blog, index) => {
-                return (
+              {loading ? (
+                <tr>
+                  <td colSpan="5" className="text-center py-8 text-gray-500">
+                    Loading...
+                  </td>
+                </tr>
+              ) : dashboardData.recentBlogs && dashboardData.recentBlogs.length > 0 ? (
+                dashboardData.recentBlogs.map((blog, index) => (
                   <BlogTableItem
                     key={blog._id}
                     blog={blog}
                     fetchBlogs={fetchDashboardData}
                     index={index + 1}
                   />
-                );
-              })}
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="text-center py-8 text-gray-500">
+                    No blogs yet
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -86,4 +119,5 @@ const Dashboard = () => {
     </div>
   );
 };
+
 export default Dashboard;

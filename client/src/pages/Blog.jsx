@@ -1,27 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import Moment from "moment";
-import { blog_data, assets, comments_data } from "../assets/assets";
+import { assets } from "../assets/assets";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import Loader from "../components/Loader";
 import { useAuth } from "../context/AuthContext";
-
-const getCommentStorageKey = (blogId) => `ptitblog_comments_${blogId}`;
-
-const readLocalComments = (blogId) => {
-  try {
-    const value = localStorage.getItem(getCommentStorageKey(blogId));
-    return value ? JSON.parse(value) : [];
-  } catch (error) {
-    console.error("Cannot read comments from localStorage", error);
-    return [];
-  }
-};
-
-const writeLocalComments = (blogId, comments) => {
-  localStorage.setItem(getCommentStorageKey(blogId), JSON.stringify(comments));
-};
+import { blogService } from "../services/blog.service";
 
 const Blog = () => {
   const { id } = useParams();
@@ -31,22 +16,37 @@ const Blog = () => {
   const [comments, setComments] = useState([]);
   const [content, setContent] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [commentLoading, setCommentLoading] = useState(false);
 
-  const fetchBlogData = async () => {
-    const blog = blog_data.find((item) => item._id === id);
-    setData(blog);
-  };
+  const fetchBlogData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await blogService.getById(id);
+      if (response.data) {
+        setData(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch blog:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
-  const fetchComments = async () => {
-    const mockComments = comments_data.filter((comment) => {
-      if (!comment.blog) return true;
-      if (typeof comment.blog === "string") return comment.blog === id;
-      return comment.blog?._id === id;
-    });
-
-    const localComments = readLocalComments(id);
-    setComments([...localComments, ...mockComments]);
-  };
+  const fetchComments = useCallback(async () => {
+    setCommentLoading(true);
+    try {
+      const response = await blogService.getComments(id);
+      if (response.data) {
+        setComments(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch comments:", error);
+      setComments([]);
+    } finally {
+      setCommentLoading(false);
+    }
+  }, [id]);
 
   const addComment = async (e) => {
     e.preventDefault();
@@ -57,31 +57,34 @@ const Blog = () => {
       return;
     }
 
-    const newComment = {
-      _id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-      blog: id,
-      name: user.name,
-      email: user.email,
-      content: content.trim(),
-      isApproved: false,
-      createdAt: new Date().toISOString(),
-    };
-
-    const localComments = readLocalComments(id);
-    const nextLocalComments = [newComment, ...localComments];
-    writeLocalComments(id, nextLocalComments);
-
-    setComments((prev) => [newComment, ...prev]);
-    setContent("");
-    setMessage("Bình luận của bạn đã được ghi nhận và đang chờ duyệt.");
+    try {
+      await blogService.addComment(id, content);
+      setContent("");
+      setMessage("Bình luận của bạn đã được ghi nhận và đang chờ duyệt.");
+      fetchComments();
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Không thể gửi bình luận. Vui lòng thử lại.");
+    }
   };
 
   useEffect(() => {
     fetchBlogData();
     fetchComments();
-  }, [id]);
+  }, [fetchBlogData, fetchComments]);
 
-  return data ? (
+  if (loading) {
+    return <Loader />;
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-gray-500">Blog not found</p>
+      </div>
+    );
+  }
+
+  return (
     <div>
       <div className="relative">
         <img
@@ -100,12 +103,12 @@ const Blog = () => {
           </h1>
           <h2 className="my-5 max-w-lg truncate mx-auto">{data.subTitle}</h2>
           <p className="inline-block py-1 px-4 rounded-full mb-6 border text-sm border-primary/35 bg-primary/5 font-medium text-primary">
-            S.PTIT Team
+            {data.category?.name || data.category || "Uncategorized"}
           </p>
         </div>
 
         <div className="mx-5 max-w-5xl md:mx-auto my-10 mt-6">
-          <img src={data.image} alt="" className="rounded-3xl mb-5" />
+          {data.image && <img src={data.image} alt="" className="rounded-3xl mb-5" />}
           <div
             className="rich-text max-w-3xl mx-auto"
             dangerouslySetInnerHTML={{ __html: data.description }}
@@ -127,7 +130,9 @@ const Blog = () => {
           </div>
 
           <div className="flex flex-col gap-4">
-            {comments.length > 0 ? (
+            {commentLoading ? (
+              <div className="text-center py-8 text-gray-500">Loading comments...</div>
+            ) : comments.length > 0 ? (
               comments.map((item) => (
                 <div
                   key={item._id || `${item.name}-${item.createdAt}`}
@@ -135,7 +140,7 @@ const Blog = () => {
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <img src={assets.user_icon} alt="" className="w-6" />
-                    <p className="font-medium">{item.name}</p>
+                    <p className="font-medium">{item.name || item.user?.name || "Anonymous"}</p>
                     {item.isApproved === false && (
                       <span className="text-[11px] border border-orange-200 bg-orange-50 text-orange-600 rounded-full px-2 py-0.5">
                         Pending
@@ -162,7 +167,11 @@ const Blog = () => {
           <div className="max-w-lg rounded-2xl border border-primary/15 bg-white p-5 shadow shadow-primary/5">
             <p className="font-semibold mb-2">Add your comment</p>
             {message && (
-              <p className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-600">
+              <p className={`mb-4 rounded-lg border px-4 py-2 text-sm ${
+                message.includes("thành công") || message.includes("ghi nhận")
+                  ? "border-green-200 bg-green-50 text-green-600"
+                  : "border-red-200 bg-red-50 text-red-600"
+              }`}>
                 {message}
               </p>
             )}
@@ -235,8 +244,6 @@ const Blog = () => {
       </div>
       <Footer />
     </div>
-  ) : (
-    <Loader />
   );
 };
 

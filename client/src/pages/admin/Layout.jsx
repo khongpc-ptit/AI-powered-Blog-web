@@ -3,13 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { assets } from "../../assets/assets";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../../components/admin/Sidebar";
+import { useAuth } from "../../context/AuthContext";
 
 const Layout = () => {
   const navigate = useNavigate();
+  const { logout } = useAuth();
 
-  const logout = () => {
-    localStorage.removeItem("ptitblog_admin_token");
-    navigate("/login");
+  const handleLogout = async () => {
+    await logout();
   };
 
   return (
@@ -23,7 +24,7 @@ const Layout = () => {
         />
 
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="text-sm px-8 py-2 bg-primary text-white rounded-full cursor-pointer"
         >
           Logout

@@ -63,12 +63,12 @@ const Sidebar = () => {
       name: "Roles & Permissions",
       path: "/admin/permissions",
       icon: assets.list_icon,
-      permissions: [PERMISSIONS.MANAGE_ADMIN],
+      permissions: [PERMISSIONS.MANAGE_PERMISSION, PERMISSIONS.MANAGE_ADMIN],
     },
   ];
 
   const visibleMenuItems = menuItems.filter((item) =>
-    canAccessAny(currentUser, item.permissions),
+    canAccessAny(currentUser, item.permissions)
   );
 
   return (
@@ -116,7 +116,7 @@ const Sidebar = () => {
           `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${isActive && "bg-primary/10 border-r-4 border-primary"}`
         }
       >
-        <img src={assets.category_icon} alt="" className="min w-4 w-5" />
+        <img src={assets.category_icon || assets.list_icon} alt="" className="min w-4 w-5" />
         <p className="hidden md:inline-block">Categories</p>
       </NavLink>
       <NavLink
@@ -127,6 +127,24 @@ const Sidebar = () => {
       >
         <img src={assets.user_icon} alt="" className="min w-4 w-5" />
         <p className="hidden md:inline-block">Users</p>
+      </NavLink>
+      <NavLink
+        to="/admin/accountadmin"
+        className={({ isActive }) =>
+          `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${isActive && "bg-primary/10 border-r-4 border-primary"}`
+        }
+      >
+        <img src={assets.user_icon} alt="" className="min w-4 w-5" />
+        <p className="hidden md:inline-block">Accounts Admin</p>
+      </NavLink>
+      <NavLink
+        to="/admin/permissions"
+        className={({ isActive }) =>
+          `flex items-center gap-3 py-3.5 px-3 md:px-9 md:min-w-64 cursor-pointer ${isActive && "bg-primary/10 border-r-4 border-primary"}`
+        }
+      >
+        <img src={assets.list_icon} alt="" className="min w-4 w-5" />
+        <p className="hidden md:inline-block">Roles & Permissions</p>
       </NavLink>
     </div>
   );

@@ -1,46 +1,47 @@
-import React from "react";
-import { assets, blogCategories, blog_data } from "../../assets/assets";
-import { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { assets } from "../../assets/assets";
 import Quill from "quill";
-import { useRef } from "react";
-import { useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { adminBlogService } from "../../services/blog.service";
+import { categoryService } from "../../services/category.service";
 
 const AddBlog = () => {
   const editorRef = useRef(null);
   const quillRef = useRef(null);
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const blogId = searchParams.get("id");
   const isEditMode = !!blogId;
 
-  const [image, setImage] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [title, setTitle] = useState("");
   const [subTitle, setSubTitle] = useState("");
-  const [category, setCategory] = useState("Startup");
+  const [category, setCategory] = useState("");
   const [isPublished, setIsPublished] = useState(false);
   const [description, setDescription] = useState("");
-  const onSubmitHandler = async (e) => {
-    e.preventDefault();
-    // TODO: Backend sẽ xử lý logic submit
-    // Khi backend ready, gọi API tương ứng:
-    // - Nếu isEditMode: PUT /api/admin/blogs/:id
-    // - Nếu không: POST /api/admin/blogs
-    console.log("Form submitted:", {
-      title,
-      subTitle,
-      category,
-      isPublished,
-      description,
-      image,
-    });
-  };
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [generating, setGenerating] = useState(false);
 
-  const generateContent = () => {
-    // TODO: Backend sẽ implement AI content generation
-  };
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await categoryService.getAll();
+        if (response.data) {
+          setCategories(response.data);
+          if (response.data.length > 0 && !category) {
+            setCategory(response.data[0].name || response.data[0]._id);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch categories:", error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
-  // Init Quill editor
   useEffect(() => {
     if (!quillRef.current && editorRef.current) {
       quillRef.current = new Quill(editorRef.current, {
@@ -51,40 +52,92 @@ const AddBlog = () => {
       quillRef.current.on("text-change", () => {
         setDescription(quillRef.current.root.innerHTML);
       });
-
-      // Listen to text change to update description state
-      quillRef.current.on("text-change", () => {
-        if (quillRef.current) {
-          setDescription(quillRef.current.root.innerHTML);
-        }
-      });
     }
   }, []);
 
-  // Load blog data khi ở chế độ sửa
   useEffect(() => {
     if (isEditMode) {
-      // TODO: Khi backend ready, gọi API GET /api/admin/blogs/:id
-      // Hiện tại dùng mock data để demo
-      const blog = blog_data.find((b) => b._id === blogId);
-      if (blog) {
-        setTitle(blog.title || "");
-        setSubTitle(blog.subTitle || "");
-        setCategory(blog.category || "Startup");
-        setIsPublished(blog.isPublished || false);
-        setDescription(blog.description || "");
+      const fetchBlog = async () => {
+        try {
+          const response = await adminBlogService.getAll();
+          const blog = response.data?.find((b) => b._id === blogId);
+          if (blog) {
+            setTitle(blog.title || "");
+            setSubTitle(blog.subTitle || "");
+            setCategory(blog.category?.name || blog.category || "");
+            setIsPublished(blog.isPublished || false);
+            setDescription(blog.description || "");
 
-        if (blog.image) {
-          setImagePreview(blog.image);
-        }
+            if (blog.image) {
+              setImagePreview(blog.image);
+            }
 
-        // Set content cho Quill editor
-        if (quillRef.current) {
-          quillRef.current.root.innerHTML = blog.description || "";
+            if (quillRef.current) {
+              quillRef.current.root.innerHTML = blog.description || "";
+            }
+          }
+        } catch (error) {
+          console.error("Failed to fetch blog:", error);
         }
-      }
+      };
+      fetchBlog();
     }
   }, [isEditMode, blogId]);
+
+  const onSubmitHandler = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("subTitle", subTitle);
+      formData.append("category", category);
+      formData.append("description", description);
+      formData.append("isPublished", String(isPublished));
+
+      if (image) {
+        formData.append("image", image);
+      }
+
+      if (isEditMode) {
+        await adminBlogService.update(blogId, formData);
+      } else {
+        await adminBlogService.create(formData);
+      }
+
+      navigate("/admin/listBlog");
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to save blog");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateContent = async () => {
+    if (!title && !subTitle) {
+      setError("Please enter a title first");
+      return;
+    }
+
+    setGenerating(true);
+    setError("");
+
+    try {
+      const response = await adminBlogService.generateContent(title + " " + subTitle);
+      if (response.data?.content) {
+        if (quillRef.current) {
+          quillRef.current.root.innerHTML = response.data.content;
+        }
+        setDescription(response.data.content);
+      }
+    } catch (err) {
+      setError("Failed to generate content. Please try again.");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   return (
     <form
@@ -92,6 +145,12 @@ const AddBlog = () => {
       className="flex-1 bg-blue-50/50 text-gray-600 h-full overflow-y-auto"
     >
       <div className="bg-white w-full max-w-2xl p-4 md:p-8 sm:m-8 shadow rounded">
+        {error && (
+          <div className="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-600 text-sm">
+            {error}
+          </div>
+        )}
+
         <p>Upload thumbnail</p>
 
         <label htmlFor="image">
@@ -111,6 +170,7 @@ const AddBlog = () => {
             }}
             type="file"
             id="image"
+            accept="image/*"
             hidden
           />
         </label>
@@ -143,9 +203,10 @@ const AddBlog = () => {
           <button
             type="button"
             onClick={generateContent}
-            className="mt-3 text-xs text-white bg-black/70 px-4 py-2 rounded hover:bg-black/80 cursor-pointer"
+            disabled={generating}
+            className="mt-3 text-xs text-white bg-black/70 px-4 py-2 rounded hover:bg-black/80 cursor-pointer disabled:opacity-50"
           >
-            Generate with AI
+            {generating ? "Generating..." : "Generate with AI"}
           </button>
         </div>
 
@@ -156,13 +217,11 @@ const AddBlog = () => {
           name="category"
           className="mt-2 px-3 py-2 border text-gray-500 border-gray-300 outline-none rounded"
         >
-          {blogCategories.map((item, index) => {
-            return (
-              <option key={index} value={item}>
-                {item}
-              </option>
-            );
-          })}
+          {categories.map((cat) => (
+            <option key={cat._id} value={cat.name || cat._id}>
+              {cat.name}
+            </option>
+          ))}
         </select>
 
         <div className="flex gap-2 mt-4">
@@ -177,9 +236,10 @@ const AddBlog = () => {
 
         <button
           type="submit"
-          className="mt-8 w-40 h-10 bg-primary text-white rounded cursor-pointer text-sm"
+          disabled={loading}
+          className="mt-8 w-40 h-10 bg-primary text-white rounded cursor-pointer text-sm disabled:opacity-60"
         >
-          {isEditMode ? "Update Blog" : "Add Blog"}
+          {loading ? "Saving..." : isEditMode ? "Update Blog" : "Add Blog"}
         </button>
       </div>
     </form>

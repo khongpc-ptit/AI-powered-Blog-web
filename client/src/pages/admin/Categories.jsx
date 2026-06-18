@@ -1,14 +1,16 @@
 import React, { useEffect, useState, useMemo } from "react";
 import DataTable from "../../components/DataTable";
 import { assets } from "../../assets/assets";
+import { categoryService } from "../../services/category.service";
 
 const Categories = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState("add"); // 'add' | 'edit'
+  const [modalMode, setModalMode] = useState("add");
   const [editingCategory, setEditingCategory] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -16,64 +18,18 @@ const Categories = () => {
     status: "active",
   });
 
-  // Mock data - sau này thay bằng API
-  const mockCategories = [
-    {
-      _id: "1",
-      name: "Technology",
-      description: "Các bài viết về công nghệ và lập trình",
-      status: "active",
-      createdAt: "2025-01-15T10:00:00.000Z",
-    },
-    {
-      _id: "2",
-      name: "Startup",
-      description: "Khởi nghiệp và kinh doanh",
-      status: "active",
-      createdAt: "2025-01-16T11:30:00.000Z",
-    },
-    {
-      _id: "3",
-      name: "Lifestyle",
-      description: "Phong cách sống và du lịch",
-      status: "active",
-      createdAt: "2025-02-01T09:00:00.000Z",
-    },
-    {
-      _id: "4",
-      name: "Finance",
-      description: "Tài chính và đầu tư",
-      status: "active",
-      createdAt: "2025-02-10T14:00:00.000Z",
-    },
-    {
-      _id: "5",
-      name: "Health",
-      description: "Sức khỏe và thể thao",
-      status: "inactive",
-      createdAt: "2025-03-05T08:00:00.000Z",
-    },
-  ];
-
-  const blog_data = [
-    { _id: "1", category: "Technology" },
-    { _id: "2", category: "Technology" },
-    { _id: "3", category: "Technology" },
-    { _id: "4", category: "Startup" },
-    { _id: "5", category: "Startup" },
-    { _id: "6", category: "Lifestyle" },
-    { _id: "7", category: "Lifestyle" },
-    { _id: "8", category: "Lifestyle" },
-    { _id: "9", category: "Finance" },
-    { _id: "10", category: "Finance" },
-    { _id: "11", category: "Finance" },
-    { _id: "12", category: "Finance" },
-  ];
-
   const fetchCategories = async () => {
     setLoading(true);
-    setCategories(mockCategories);
-    setLoading(false);
+    try {
+      const response = await categoryService.getAll();
+      if (response.data) {
+        setCategories(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch categories:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -81,13 +37,14 @@ const Categories = () => {
   }, []);
 
   const countBlogsByCategory = (categoryName) => {
-    return blog_data.filter((blog) => blog.category === categoryName).length;
+    return 0;
   };
 
   const handleAdd = () => {
     setModalMode("add");
     setEditingCategory(null);
     setFormData({ name: "", description: "", status: "active" });
+    setError("");
     setShowModal(true);
   };
 
@@ -95,10 +52,11 @@ const Categories = () => {
     setModalMode("edit");
     setEditingCategory(category);
     setFormData({
-      name: category.name,
-      description: category.description,
-      status: category.status,
+      name: category.name || "",
+      description: category.description || "",
+      status: category.status || "active",
     });
+    setError("");
     setShowModal(true);
   };
 
@@ -106,34 +64,43 @@ const Categories = () => {
     setDeleteConfirm(category);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deleteConfirm) {
-      setCategories((prev) => prev.filter((c) => c._id !== deleteConfirm._id));
+      try {
+        await categoryService.delete(deleteConfirm._id);
+        setCategories((prev) => prev.filter((c) => c._id !== deleteConfirm._id));
+      } catch (error) {
+        console.error("Failed to delete category:", error);
+        alert("Failed to delete category");
+      }
       setDeleteConfirm(null);
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (modalMode === "add") {
-      const newCategory = {
-        _id: Date.now().toString(),
-        name: formData.name,
-        description: formData.description,
-        status: formData.status,
-        createdAt: new Date().toISOString(),
-      };
-      setCategories((prev) => [...prev, newCategory]);
-    } else if (modalMode === "edit" && editingCategory) {
-      setCategories((prev) =>
-        prev.map((c) =>
-          c._id === editingCategory._id
-            ? { ...c, ...formData }
-            : c
-        )
-      );
+    setError("");
+
+    try {
+      if (modalMode === "add") {
+        const response = await categoryService.create(formData);
+        if (response.data) {
+          setCategories((prev) => [...prev, response.data]);
+        }
+      } else if (modalMode === "edit" && editingCategory) {
+        const response = await categoryService.update(editingCategory._id, formData);
+        if (response.data) {
+          setCategories((prev) =>
+            prev.map((c) =>
+              c._id === editingCategory._id ? { ...c, ...formData } : c
+            )
+          );
+        }
+      }
+      setShowModal(false);
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to save category");
     }
-    setShowModal(false);
   };
 
   const columns = [
@@ -158,7 +125,7 @@ const Categories = () => {
       sortable: false,
       render: (item) => (
         <div className="max-w-xs truncate text-gray-600" title={item.description}>
-          {item.description}
+          {item.description || "-"}
         </div>
       ),
     },
@@ -167,7 +134,7 @@ const Categories = () => {
       header: "Blogs",
       sortable: true,
       render: (item) => (
-        <span className="font-semibold text-primary">{item.blogCount}</span>
+        <span className="font-semibold text-primary">{item.blogCount || 0}</span>
       ),
     },
     {
@@ -222,7 +189,7 @@ const Categories = () => {
     return categories.map((cat, index) => ({
       ...cat,
       index: index + 1,
-      blogCount: countBlogsByCategory(cat.name),
+      blogCount: cat.blogCount || countBlogsByCategory(cat.name),
     }));
   }, [categories]);
 
@@ -273,6 +240,11 @@ const Categories = () => {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-5">
+              {error && (
+                <div className="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-600 text-sm">
+                  {error}
+                </div>
+              )}
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import { assets } from "../../assets/assets";
@@ -39,8 +39,21 @@ const UserRegister = () => {
     setError("");
 
     try {
-      await register(formData);
-      navigate("/profile", { replace: true });
+      const { confirmPassword, yearOfBirth, address, phone, name, email, password } = formData;
+      const result = await register({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        yearOfBirth: yearOfBirth || undefined,
+        address: address?.trim() || undefined,
+        phone: phone?.trim() || undefined,
+      });
+
+      if (result.success) {
+        navigate("/profile", { replace: true });
+      } else {
+        setError(result.message || "Đăng ký thất bại.");
+      }
     } catch (err) {
       setError(err.message || "Đăng ký thất bại.");
     } finally {

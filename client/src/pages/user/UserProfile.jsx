@@ -11,7 +11,6 @@ const UserProfile = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const [profileForm, setProfileForm] = useState({
     name: user?.name || "",
-    email: user?.email || "",
     yearOfBirth: user?.yearOfBirth || "",
     address: user?.address || "",
     phone: user?.phone || "",
@@ -44,8 +43,12 @@ const UserProfile = () => {
     setMessage("");
 
     try {
-      await updateProfile(profileForm);
-      setMessage("Cập nhật thông tin tài khoản thành công.");
+      const result = await updateProfile(profileForm);
+      if (result.success) {
+        setMessage("Cập nhật thông tin tài khoản thành công.");
+      } else {
+        setError(result.message || "Cập nhật thất bại.");
+      }
     } catch (err) {
       setError(err.message || "Cập nhật thất bại.");
     } finally {
@@ -66,13 +69,21 @@ const UserProfile = () => {
     setMessage("");
 
     try {
-      await changePassword(passwordForm);
-      setPasswordForm({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
+      const result = await changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
       });
-      setMessage("Đổi mật khẩu thành công.");
+
+      if (result.success) {
+        setPasswordForm({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+        setMessage("Đổi mật khẩu thành công.");
+      } else {
+        setError(result.message || "Đổi mật khẩu thất bại.");
+      }
     } catch (err) {
       setError(err.message || "Đổi mật khẩu thất bại.");
     } finally {
@@ -168,7 +179,7 @@ const UserProfile = () => {
                   </p>
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label className="text-sm font-medium">Full name</label>
                   <input
                     name="name"
@@ -180,17 +191,17 @@ const UserProfile = () => {
                   />
                 </div>
 
-                <div>
+                <div className="sm:col-span-2">
                   <label className="text-sm font-medium">Email</label>
                   <input
                     name="email"
-                    value={profileForm.email}
+                    value={user?.email || ""}
                     type="email"
                     disabled
                     className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-400 outline-none"
                   />
                   <p className="mt-1 text-xs text-gray-400">
-                    Email dùng để đăng nhập nên không chỉnh ở frontend mock.
+                    Email không thể thay đổi.
                   </p>
                 </div>
 

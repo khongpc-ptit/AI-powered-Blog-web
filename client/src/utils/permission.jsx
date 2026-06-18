@@ -91,7 +91,7 @@ export const getRoleByCode = (roleCode) => {
 
 export const getCurrentUser = () => {
   try {
-    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+    const currentUser = JSON.parse(localStorage.getItem("user"));
 
     if (!currentUser) return null;
 

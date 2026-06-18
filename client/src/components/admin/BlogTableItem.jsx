@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { assets } from "../../assets/assets";
 import { PERMISSIONS } from "../../constants/rbac";
 import { getCurrentUser, hasPermission } from "../../utils/permission";
+import { adminBlogService } from "../../services/blog.service";
 
 const BlogTableItem = ({ blog, fetchBlogs, index }) => {
   const navigate = useNavigate();
@@ -22,23 +23,33 @@ const BlogTableItem = ({ blog, fetchBlogs, index }) => {
     navigate(`/admin/addBlog?id=${blog._id}`);
   };
 
-  const handleChangeStatus = () => {
-    // Sau này nối API backend thì gọi API publish/unpublish ở đây
-    alert(blog.isPublished ? "Unpublish blog" : "Publish blog");
+  const handleChangeStatus = async () => {
+    try {
+      await adminBlogService.toggleStatus(blog._id);
+      if (fetchBlogs) {
+        fetchBlogs();
+      }
+    } catch (error) {
+      console.error("Failed to toggle blog status:", error);
+      alert("Failed to update blog status");
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     const confirmDelete = window.confirm(
       "Are you sure you want to delete this blog?",
     );
 
     if (!confirmDelete) return;
 
-    // Sau này nối API backend thì gọi API delete ở đây
-    alert("Delete blog");
-
-    if (fetchBlogs) {
-      fetchBlogs();
+    try {
+      await adminBlogService.delete(blog._id);
+      if (fetchBlogs) {
+        fetchBlogs();
+      }
+    } catch (error) {
+      console.error("Failed to delete blog:", error);
+      alert("Failed to delete blog");
     }
   };
 

@@ -1,67 +1,21 @@
 import React, { useState } from "react";
 import { assets } from "../../assets/assets";
 import DataTable from "../../components/DataTable";
+import { staffService } from "../../services/admin.service";
+import { normalizeRoleCode } from "../../utils/permission";
+import { ROLE_OPTIONS } from "../../constants/rbac";
 
 const AccountAdmin = () => {
-  const [admins, setAdmins] = useState([
-    {
-      _id: "admin_1",
-      fullName: "Super Admin",
-      email: "superadmin@gmail.com",
-      password: "superadmin123",
-      role: "Super Admin",
-      phone: "0900000001",
-      address: "Ho Chi Minh City",
-      createdAt: "2026-06-16",
-    },
-    {
-      _id: "admin_2",
-      fullName: "Main Admin",
-      email: "admin@gmail.com",
-      password: "admin123",
-      role: "Admin",
-      phone: "0900000002",
-      address: "Ha Noi",
-      createdAt: "2026-06-16",
-    },
-    {
-      _id: "admin_3",
-      fullName: "Blog Writer",
-      email: "blogger@gmail.com",
-      password: "blogger123",
-      role: "Blogger",
-      phone: "0900000003",
-      address: "Da Nang",
-      createdAt: "2026-06-16",
-    },
-    {
-      _id: "admin_4",
-      fullName: "Content Manager",
-      email: "content@gmail.com",
-      password: "content123",
-      role: "Content Manager",
-      phone: "0900000004",
-      address: "Can Tho",
-      createdAt: "2026-06-16",
-    },
-    {
-      _id: "admin_1",
-      fullName: "Super 2 Admin",
-      email: "superadmin2@gmail.com",
-      password: "superadmin12344",
-      role: "Super Admin",
-      phone: "0900000001",
-      address: "Ho Chi Minh City",
-      createdAt: "2026-06-16",
-    },
-  ]);
+  const [admins, setAdmins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState({ type: "", text: "" });
 
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
     phone: "",
     address: "",
-    role: "Admin",
+    role: "admin",
     password: "",
     confirmPassword: "",
   });
@@ -82,47 +36,64 @@ const AccountAdmin = () => {
     email: "",
     phone: "",
     address: "",
-    role: "Admin",
+    role: "admin",
   });
 
-  const [message, setMessage] = useState({
-    type: "",
-    text: "",
-  });
+  const [formError, setFormError] = useState("");
 
-  const normalRoles = ["Admin", "Blogger", "Content Manager"];
+  const fetchAdmins = async () => {
+    setLoading(true);
+    try {
+      const response = await staffService.getAll();
+      if (response.data) {
+        setAdmins(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch staff:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchAdmins();
+  }, []);
+
+  const normalRoles = ["Admin", "Content Manager", "Blogger"];
 
   const showMessage = (type, text) => {
     setMessage({ type, text });
-
     setTimeout(() => {
       setMessage({ type: "", text: "" });
     }, 2500);
   };
 
   const getRoleStyle = (role) => {
-    if (role === "Super Admin") {
+    const normalizedRole = normalizeRoleCode(role);
+    
+    if (normalizedRole === "super_admin") {
       return "bg-purple-100 text-purple-700";
     }
-
-    if (role === "Admin") {
+    if (normalizedRole === "admin") {
       return "bg-primary/10 text-primary";
     }
-
-    if (role === "Blogger") {
+    if (normalizedRole === "blogger") {
       return "bg-orange-100 text-orange-600";
     }
-
-    if (role === "Content Manager") {
+    if (normalizedRole === "content_manager") {
       return "bg-green-100 text-green-600";
     }
-
     return "bg-gray-100 text-gray-600";
   };
 
+  const getRoleLabel = (role) => {
+    const roleOption = ROLE_OPTIONS.find((r) => r.code === normalizeRoleCode(role));
+    return roleOption ? roleOption.label : role;
+  };
+
   const getPasswordPreview = (password) => {
-    if (!password) return "No password";
-    return "•".repeat(Math.min(password.length, 12));
+    if (!password) return "••••••••";
+    return "•".repeat(Math.min(password.length, 8));
   };
 
   const detailAdmin = selectedDetailAdmin
@@ -131,33 +102,34 @@ const AccountAdmin = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
+    setFormError("");
   };
 
   const handlePasswordInputChange = (e) => {
     const { name, value } = e.target;
-
     setPasswordData((prev) => ({
       ...prev,
       [name]: value,
     }));
+    setFormError("");
   };
 
   const handleInfoInputChange = (e) => {
     const { name, value } = e.target;
-
     setInfoData((prev) => ({
       ...prev,
       [name]: value,
     }));
+    setFormError("");
   };
 
-  const handleAddAdmin = (e) => {
+  const handleAddAdmin = async (e) => {
     e.preventDefault();
+    setFormError("");
 
     const fullName = formData.fullName.trim();
     const email = formData.email.trim().toLowerCase();
@@ -167,86 +139,84 @@ const AccountAdmin = () => {
     const password = formData.password;
     const confirmPassword = formData.confirmPassword;
 
-    if (
-      !fullName ||
-      !email ||
-      !phone ||
-      !address ||
-      !role ||
-      !password ||
-      !confirmPassword
-    ) {
-      showMessage("error", "Please fill in all fields.");
+    if (!fullName || !email || !phone || !address || !role || !password || !confirmPassword) {
+      setFormError("Please fill in all fields.");
       return;
     }
 
-    if (!normalRoles.includes(role)) {
-      showMessage("error", "Invalid role selected.");
+    if (!normalRoles.includes(role) && role !== "admin") {
+      setFormError("Invalid role selected.");
       return;
     }
 
     const isEmailExist = admins.some((admin) => admin.email === email);
-
     if (isEmailExist) {
-      showMessage("error", "This email already exists.");
+      setFormError("This email already exists.");
       return;
     }
 
     if (password.length < 6) {
-      showMessage("error", "Password must be at least 6 characters.");
+      setFormError("Password must be at least 6 characters.");
       return;
     }
 
     if (password !== confirmPassword) {
-      showMessage("error", "Passwords do not match.");
+      setFormError("Passwords do not match.");
       return;
     }
 
-    const newAdmin = {
-      _id: `admin_${Date.now()}`,
-      fullName,
-      email,
-      phone,
-      address,
-      password,
-      role,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const response = await staffService.create({
+        name: fullName,
+        email,
+        phone,
+        address,
+        role,
+        password,
+      });
 
-    setAdmins((prev) => [newAdmin, ...prev]);
+      if (response.data) {
+        setAdmins((prev) => [response.data, ...prev]);
+      }
 
-    setFormData({
-      fullName: "",
-      email: "",
-      phone: "",
-      address: "",
-      role: "Admin",
-      password: "",
-      confirmPassword: "",
-    });
+      setFormData({
+        fullName: "",
+        email: "",
+        phone: "",
+        address: "",
+        role: "admin",
+        password: "",
+        confirmPassword: "",
+      });
 
-    showMessage("success", "Account added successfully.");
+      showMessage("success", "Account added successfully.");
+    } catch (error) {
+      setFormError(error.response?.data?.message || "Failed to add account.");
+    }
   };
 
-  const handleDeleteAdmin = (adminId) => {
+  const handleDeleteAdmin = async (adminId) => {
     const admin = admins.find((item) => item._id === adminId);
-
     if (!admin) return;
 
-    if (admin.role === "Super Admin") {
+    if (normalizeRoleCode(admin.role) === "super_admin") {
       showMessage("error", "Super Admin account cannot be deleted.");
       return;
     }
 
     const confirmDelete = window.confirm(
-      `Are you sure you want to delete ${admin.fullName}?`,
+      `Are you sure you want to delete ${admin.name || admin.fullName}?`
     );
 
     if (!confirmDelete) return;
 
-    setAdmins((prev) => prev.filter((item) => item._id !== adminId));
-
-    showMessage("success", "Account deleted successfully.");
+    try {
+      await staffService.delete(adminId);
+      setAdmins((prev) => prev.filter((item) => item._id !== adminId));
+      showMessage("success", "Account deleted successfully.");
+    } catch (error) {
+      showMessage("error", "Failed to delete account.");
+    }
   };
 
   const openDetailModal = (admin) => {
@@ -261,82 +231,74 @@ const AccountAdmin = () => {
 
   const openPasswordModal = (admin) => {
     setSelectedPasswordAdmin(admin);
-
     setPasswordData({
       newPassword: "",
       confirmNewPassword: "",
     });
+    setFormError("");
   };
 
   const closePasswordModal = () => {
     setSelectedPasswordAdmin(null);
-
     setPasswordData({
       newPassword: "",
       confirmNewPassword: "",
     });
+    setFormError("");
   };
 
-  const handleUpdatePassword = (e) => {
+  const handleUpdatePassword = async (e) => {
     e.preventDefault();
+    setFormError("");
 
     if (!selectedPasswordAdmin) return;
 
     if (passwordData.newPassword.length < 6) {
-      showMessage("error", "New password must be at least 6 characters.");
+      setFormError("New password must be at least 6 characters.");
       return;
     }
 
     if (passwordData.newPassword !== passwordData.confirmNewPassword) {
-      showMessage("error", "New passwords do not match.");
+      setFormError("New passwords do not match.");
       return;
     }
 
-    setAdmins((prev) =>
-      prev.map((admin) =>
-        admin._id === selectedPasswordAdmin._id
-          ? {
-              ...admin,
-              password: passwordData.newPassword,
-            }
-          : admin,
-      ),
-    );
-
-    closePasswordModal();
-
-    showMessage(
-      "success",
-      `Password updated for ${selectedPasswordAdmin.fullName}.`,
-    );
+    try {
+      await staffService.resetPassword(selectedPasswordAdmin._id, passwordData.newPassword);
+      closePasswordModal();
+      showMessage("success", `Password updated for ${selectedPasswordAdmin.name || selectedPasswordAdmin.fullName}.`);
+    } catch (error) {
+      setFormError(error.response?.data?.message || "Failed to update password.");
+    }
   };
 
   const openInfoModal = (admin) => {
     setSelectedInfoAdmin(admin);
-
     setInfoData({
-      fullName: admin.fullName,
-      email: admin.email,
-      phone: admin.phone,
-      address: admin.address,
-      role: admin.role,
+      fullName: admin.name || admin.fullName || "",
+      email: admin.email || "",
+      phone: admin.phone || "",
+      address: admin.address || "",
+      role: admin.role || "admin",
     });
+    setFormError("");
   };
 
   const closeInfoModal = () => {
     setSelectedInfoAdmin(null);
-
     setInfoData({
       fullName: "",
       email: "",
       phone: "",
       address: "",
-      role: "Admin",
+      role: "admin",
     });
+    setFormError("");
   };
 
-  const handleUpdateInformation = (e) => {
+  const handleUpdateInformation = async (e) => {
     e.preventDefault();
+    setFormError("");
 
     if (!selectedInfoAdmin) return;
 
@@ -347,54 +309,53 @@ const AccountAdmin = () => {
     const role = infoData.role;
 
     if (!fullName || !email || !phone || !address || !role) {
-      showMessage("error", "Please fill in all fields.");
+      setFormError("Please fill in all fields.");
       return;
     }
 
-    const isSuperAdmin = selectedInfoAdmin.role === "Super Admin";
+    const isSuperAdmin = normalizeRoleCode(selectedInfoAdmin.role) === "super_admin";
 
-    if (isSuperAdmin && role !== "Super Admin") {
-      showMessage("error", "Super Admin role cannot be changed.");
+    if (isSuperAdmin && role !== "super_admin") {
+      setFormError("Super Admin role cannot be changed.");
       return;
     }
 
-    if (!isSuperAdmin && role === "Super Admin") {
-      showMessage("error", "Only one Super Admin account is allowed.");
-      return;
-    }
-
-    if (!isSuperAdmin && !normalRoles.includes(role)) {
-      showMessage("error", "Invalid role selected.");
+    if (!isSuperAdmin && role === "super_admin") {
+      setFormError("Only one Super Admin account is allowed.");
       return;
     }
 
     const isEmailExist = admins.some(
-      (admin) => admin.email === email && admin._id !== selectedInfoAdmin._id,
+      (admin) => admin.email === email && admin._id !== selectedInfoAdmin._id
     );
 
     if (isEmailExist) {
-      showMessage("error", "This email already exists.");
+      setFormError("This email already exists.");
       return;
     }
 
-    setAdmins((prev) =>
-      prev.map((admin) =>
-        admin._id === selectedInfoAdmin._id
-          ? {
-              ...admin,
-              fullName,
-              email,
-              phone,
-              address,
-              role,
-            }
-          : admin,
-      ),
-    );
+    try {
+      const response = await staffService.update(selectedInfoAdmin._id, {
+        name: fullName,
+        email,
+        phone,
+        address,
+        role,
+      });
 
-    closeInfoModal();
+      if (response.data) {
+        setAdmins((prev) =>
+          prev.map((admin) =>
+            admin._id === selectedInfoAdmin._id ? { ...admin, ...response.data } : admin
+          )
+        );
+      }
 
-    showMessage("success", "Account information updated successfully.");
+      closeInfoModal();
+      showMessage("success", "Account information updated successfully.");
+    } catch (error) {
+      setFormError(error.response?.data?.message || "Failed to update account.");
+    }
   };
 
   const handleActionChange = (action, admin) => {
@@ -403,53 +364,36 @@ const AccountAdmin = () => {
     if (action === "update-password") {
       openPasswordModal(admin);
     }
-
     if (action === "update-information") {
       openInfoModal(admin);
     }
-
     if (action === "delete") {
       handleDeleteAdmin(admin._id);
     }
   };
 
   const roleFilterOptions = [
-    {
-      value: "Super Admin",
-      label: "Super Admin",
-      filterFn: (data) => data.filter((item) => item.role === "Super Admin"),
-    },
-    {
-      value: "Admin",
-      label: "Admin",
-      filterFn: (data) => data.filter((item) => item.role === "Admin"),
-    },
-    {
-      value: "Blogger",
-      label: "Blogger",
-      filterFn: (data) => data.filter((item) => item.role === "Blogger"),
-    },
-    {
-      value: "Content Manager",
-      label: "Content Manager",
-      filterFn: (data) =>
-        data.filter((item) => item.role === "Content Manager"),
-    },
+    { value: "super_admin", label: "Super Admin", filterFn: (data) => data.filter((item) => normalizeRoleCode(item.role) === "super_admin") },
+    { value: "admin", label: "Admin", filterFn: (data) => data.filter((item) => normalizeRoleCode(item.role) === "admin") },
+    { value: "blogger", label: "Blogger", filterFn: (data) => data.filter((item) => normalizeRoleCode(item.role) === "blogger") },
+    { value: "content_manager", label: "Content Manager", filterFn: (data) => data.filter((item) => normalizeRoleCode(item.role) === "content_manager") },
   ];
 
   const tableAdmins = admins.map((admin, index) => ({
     ...admin,
     no: index + 1,
+    displayName: admin.name || admin.fullName || "N/A",
+    displayRole: getRoleLabel(admin.role),
   }));
 
-  const accountColumns = [
+  const columns = [
     {
       field: "no",
       header: "#",
       cellClassName: "font-medium text-gray-700",
     },
     {
-      field: "fullName",
+      field: "displayName",
       header: "NAME",
       render: (item) => (
         <button
@@ -460,10 +404,9 @@ const AccountAdmin = () => {
           <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
             <img src={assets.user_icon} alt="" className="w-5" />
           </div>
-
           <div>
             <p className="font-medium text-gray-700 group-hover:text-primary">
-              {item.fullName}
+              {item.displayName}
             </p>
             <p className="text-xs text-gray-400 group-hover:text-primary">
               Click to view details
@@ -475,6 +418,16 @@ const AccountAdmin = () => {
     {
       field: "email",
       header: "EMAIL",
+      render: (item) => <span className="text-gray-600">{item.email}</span>,
+    },
+    {
+      field: "displayRole",
+      header: "ROLE",
+      render: (item) => (
+        <span className={`px-2 py-1 text-xs rounded-full ${getRoleStyle(item.role)}`}>
+          {item.displayRole}
+        </span>
+      ),
     },
     {
       field: "createdAt",
@@ -499,7 +452,7 @@ const AccountAdmin = () => {
           </option>
           <option value="update-password">Update Password</option>
           <option value="update-information">Update Information</option>
-          <option value="delete" disabled={item.role === "Super Admin"}>
+          <option value="delete" disabled={normalizeRoleCode(item.role) === "super_admin"}>
             Delete
           </option>
         </select>
@@ -535,7 +488,6 @@ const AccountAdmin = () => {
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
               <img src={assets.user_icon} alt="" className="w-5" />
             </div>
-
             <div>
               <h2 className="font-semibold text-gray-800">Add New Account</h2>
               <p className="text-xs text-gray-400">
@@ -543,6 +495,12 @@ const AccountAdmin = () => {
               </p>
             </div>
           </div>
+
+          {formError && (
+            <div className="mb-4 p-3 rounded bg-red-50 border border-red-200 text-red-600 text-sm">
+              {formError}
+            </div>
+          )}
 
           <div className="flex flex-col gap-4">
             <div>
@@ -606,11 +564,10 @@ const AccountAdmin = () => {
                 className="w-full mt-1 p-2 border border-gray-300 outline-none rounded bg-white"
                 required
               >
-                <option value="Admin">Admin</option>
-                <option value="Blogger">Blogger</option>
-                <option value="Content Manager">Content Manager</option>
+                <option value="admin">Admin</option>
+                <option value="blogger">Blogger</option>
+                <option value="content_manager">Content Manager</option>
               </select>
-
               <p className="text-xs text-gray-400 mt-1">
                 Super Admin is unique and cannot be created here.
               </p>
@@ -661,55 +618,46 @@ const AccountAdmin = () => {
 
           <DataTable
             data={tableAdmins}
-            columns={accountColumns}
+            columns={columns}
             searchPlaceholder="Search accounts..."
-            searchableFields={["fullName", "email", "role", "phone", "address"]}
+            searchableFields={["fullName", "name", "email", "role"]}
             filterLabel="Role"
             filterOptions={roleFilterOptions}
             defaultSortField="createdAt"
             defaultSortOrder="desc"
             itemsPerPageOptions={[5, 10, 20]}
             emptyMessage="No accounts found."
+            loading={loading}
           />
         </div>
       </div>
 
+      {/* Detail Modal */}
       {detailAdmin && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <div className="bg-white w-full max-w-md rounded-lg shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-800">
-              Account Details
-            </h2>
-
-            <p className="text-sm text-gray-500 mt-1">
-              View full account information
-            </p>
+            <h2 className="text-xl font-semibold text-gray-800">Account Details</h2>
+            <p className="text-sm text-gray-500 mt-1">View full account information</p>
 
             <div className="mt-5 flex flex-col gap-3 text-sm">
               <div className="flex justify-between gap-4 border-b pb-2">
                 <span className="text-gray-400">Name</span>
                 <span className="font-medium text-gray-700 text-right">
-                  {detailAdmin.fullName}
+                  {detailAdmin.name || detailAdmin.fullName}
                 </span>
               </div>
-
               <div className="flex justify-between gap-4 border-b pb-2">
                 <span className="text-gray-400">Email</span>
                 <span className="font-medium text-gray-700 text-right">
                   {detailAdmin.email}
                 </span>
               </div>
-
               <div className="flex justify-between gap-4 border-b pb-2">
                 <span className="text-gray-400">Password</span>
-
                 <div className="flex items-center gap-2 text-right">
                   <span className="font-medium tracking-wider text-gray-700">
-                    {showDetailPassword
-                      ? detailAdmin.password
-                      : getPasswordPreview(detailAdmin.password)}
+                    {showDetailPassword ? "••••••••" : getPasswordPreview(detailAdmin.password)}
                   </span>
-
                   <button
                     type="button"
                     onClick={() => setShowDetailPassword((prev) => !prev)}
@@ -719,32 +667,24 @@ const AccountAdmin = () => {
                   </button>
                 </div>
               </div>
-
               <div className="flex justify-between gap-4 border-b pb-2">
                 <span className="text-gray-400">Role</span>
-                <span
-                  className={`px-3 py-1 rounded-full text-xs ${getRoleStyle(
-                    detailAdmin.role,
-                  )}`}
-                >
-                  {detailAdmin.role}
+                <span className={`px-3 py-1 rounded-full text-xs ${getRoleStyle(detailAdmin.role)}`}>
+                  {getRoleLabel(detailAdmin.role)}
                 </span>
               </div>
-
               <div className="flex justify-between gap-4 border-b pb-2">
                 <span className="text-gray-400">Created At</span>
                 <span className="font-medium text-gray-700 text-right">
                   {new Date(detailAdmin.createdAt).toLocaleDateString()}
                 </span>
               </div>
-
               <div className="flex justify-between gap-4 border-b pb-2">
                 <span className="text-gray-400">Phone</span>
                 <span className="font-medium text-gray-700 text-right">
                   {detailAdmin.phone}
                 </span>
               </div>
-
               <div className="flex justify-between gap-4 border-b pb-2">
                 <span className="text-gray-400">Address</span>
                 <span className="font-medium text-gray-700 text-right">
@@ -766,22 +706,26 @@ const AccountAdmin = () => {
         </div>
       )}
 
+      {/* Password Modal */}
       {selectedPasswordAdmin && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <form
             onSubmit={handleUpdatePassword}
             className="bg-white w-full max-w-md rounded-lg shadow-lg p-6"
           >
-            <h2 className="text-xl font-semibold text-gray-800">
-              Update Password
-            </h2>
-
+            <h2 className="text-xl font-semibold text-gray-800">Update Password</h2>
             <p className="text-sm text-gray-500 mt-1">
               Change password for{" "}
               <span className="font-medium text-primary">
-                {selectedPasswordAdmin.fullName}
+                {selectedPasswordAdmin.name || selectedPasswordAdmin.fullName}
               </span>
             </p>
+
+            {formError && (
+              <div className="mt-3 p-3 rounded bg-red-50 border border-red-200 text-red-600 text-sm">
+                {formError}
+              </div>
+            )}
 
             <div className="mt-5 flex flex-col gap-4">
               <div>
@@ -796,7 +740,6 @@ const AccountAdmin = () => {
                   required
                 />
               </div>
-
               <div>
                 <label className="text-sm">Confirm New Password</label>
                 <input
@@ -819,7 +762,6 @@ const AccountAdmin = () => {
               >
                 Cancel
               </button>
-
               <button
                 type="submit"
                 className="px-5 py-2 bg-primary text-white rounded cursor-pointer"
@@ -831,22 +773,26 @@ const AccountAdmin = () => {
         </div>
       )}
 
+      {/* Info Modal */}
       {selectedInfoAdmin && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-4">
           <form
             onSubmit={handleUpdateInformation}
             className="bg-white w-full max-w-md rounded-lg shadow-lg p-6"
           >
-            <h2 className="text-xl font-semibold text-gray-800">
-              Update Information
-            </h2>
-
+            <h2 className="text-xl font-semibold text-gray-800">Update Information</h2>
             <p className="text-sm text-gray-500 mt-1">
               Edit information for{" "}
               <span className="font-medium text-primary">
-                {selectedInfoAdmin.fullName}
+                {selectedInfoAdmin.name || selectedInfoAdmin.fullName}
               </span>
             </p>
+
+            {formError && (
+              <div className="mt-3 p-3 rounded bg-red-50 border border-red-200 text-red-600 text-sm">
+                {formError}
+              </div>
+            )}
 
             <div className="mt-5 flex flex-col gap-4">
               <div>
@@ -861,7 +807,6 @@ const AccountAdmin = () => {
                   required
                 />
               </div>
-
               <div>
                 <label className="text-sm">Email</label>
                 <input
@@ -874,7 +819,6 @@ const AccountAdmin = () => {
                   required
                 />
               </div>
-
               <div>
                 <label className="text-sm">Phone</label>
                 <input
@@ -887,7 +831,6 @@ const AccountAdmin = () => {
                   required
                 />
               </div>
-
               <div>
                 <label className="text-sm">Address</label>
                 <input
@@ -900,30 +843,28 @@ const AccountAdmin = () => {
                   required
                 />
               </div>
-
               <div>
                 <label className="text-sm">Role</label>
                 <select
                   name="role"
                   value={infoData.role}
                   onChange={handleInfoInputChange}
-                  disabled={selectedInfoAdmin.role === "Super Admin"}
+                  disabled={normalizeRoleCode(selectedInfoAdmin.role) === "super_admin"}
                   className={`w-full mt-1 p-2 border border-gray-300 outline-none rounded bg-white ${
-                    selectedInfoAdmin.role === "Super Admin"
+                    normalizeRoleCode(selectedInfoAdmin.role) === "super_admin"
                       ? "text-gray-400 cursor-not-allowed"
                       : ""
                   }`}
                   required
                 >
-                  {selectedInfoAdmin.role === "Super Admin" && (
-                    <option value="Super Admin">Super Admin</option>
+                  {normalizeRoleCode(selectedInfoAdmin.role) === "super_admin" && (
+                    <option value="super_admin">Super Admin</option>
                   )}
-                  <option value="Admin">Admin</option>
-                  <option value="Blogger">Blogger</option>
-                  <option value="Content Manager">Content Manager</option>
+                  <option value="admin">Admin</option>
+                  <option value="blogger">Blogger</option>
+                  <option value="content_manager">Content Manager</option>
                 </select>
-
-                {selectedInfoAdmin.role === "Super Admin" && (
+                {normalizeRoleCode(selectedInfoAdmin.role) === "super_admin" && (
                   <p className="text-xs text-gray-400 mt-1">
                     Super Admin role cannot be changed.
                   </p>
@@ -939,7 +880,6 @@ const AccountAdmin = () => {
               >
                 Cancel
               </button>
-
               <button
                 type="submit"
                 className="px-5 py-2 bg-primary text-white rounded cursor-pointer"

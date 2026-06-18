@@ -1,133 +1,140 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import authService from "../services/auth.service";
+import { useNavigate } from "react-router-dom";
 
 const AuthContext = createContext(null);
 
-const USERS_KEY = "ptitblog_users";
-const CURRENT_USER_KEY = "ptitblog_current_user";
-
-const readJson = (key, fallback) => {
-  try {
-    const value = localStorage.getItem(key);
-    return value ? JSON.parse(value) : fallback;
-  } catch (error) {
-    console.error(`Cannot read ${key} from localStorage`, error);
-    return fallback;
-  }
-};
-
-const writeJson = (key, value) => {
-  localStorage.setItem(key, JSON.stringify(value));
-};
-
-const removePassword = (user) => {
-  if (!user) return null;
-  const { password, ...safeUser } = user;
-  return safeUser;
-};
-
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const savedUser = readJson(CURRENT_USER_KEY, null);
-    if (savedUser) setUser(savedUser);
+    const initAuth = async () => {
+      try {
+        const storedUser = localStorage.getItem("user");
+        const token = localStorage.getItem("accessToken");
+        if (storedUser && token) {
+          setUser(JSON.parse(storedUser));
+        }
+      } catch (error) {
+        console.error("Failed to load user from storage:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    initAuth();
   }, []);
 
-  const register = async ({ name, email, password, yearOfBirth, address, phone }) => {
-    const users = readJson(USERS_KEY, []);
-    const normalizedEmail = email.trim().toLowerCase();
-
-    if (users.some((item) => item.email === normalizedEmail)) {
-      throw new Error("Email này đã được đăng ký.");
+  const login = useCallback(async (email, password) => {
+    try {
+      const response = await authService.login(email, password);
+      const { user: userData, accessToken } = response.data;
+      
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("user", JSON.stringify(userData));
+      setUser(userData);
+      
+      return { success: true, user: userData };
+    } catch (error) {
+      const message = error.response?.data?.message || "Đăng nhập thất bại";
+      return { success: false, message };
     }
+  }, []);
 
-    const newUser = {
-      _id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-      name: name.trim(),
-      email: normalizedEmail,
-      password,
-      yearOfBirth: yearOfBirth || "",
-      address: address?.trim() || "",
-      phone: phone?.trim() || "",
-      role: "user",
-      createdAt: new Date().toISOString(),
-    };
-
-    const nextUsers = [...users, newUser];
-    writeJson(USERS_KEY, nextUsers);
-
-    const safeUser = removePassword(newUser);
-    setUser(safeUser);
-    writeJson(CURRENT_USER_KEY, safeUser);
-    return safeUser;
-  };
-
-  const login = async ({ email, password }) => {
-    const users = readJson(USERS_KEY, []);
-    const normalizedEmail = email.trim().toLowerCase();
-    const foundUser = users.find(
-      (item) => item.email === normalizedEmail && item.password === password
-    );
-
-    if (!foundUser) {
-      throw new Error("Email hoặc mật khẩu không đúng.");
+  const register = useCallback(async (userData) => {
+    try {
+      const response = await authService.register(userData);
+      const { user: newUser, accessToken } = response.data;
+      
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("user", JSON.stringify(newUser));
+      setUser(newUser);
+      
+      return { success: true, user: newUser };
+    } catch (error) {
+      const message = error.response?.data?.message || "Đăng ký thất bại";
+      return { success: false, message };
     }
+  }, []);
 
-    const safeUser = removePassword(foundUser);
-    setUser(safeUser);
-    writeJson(CURRENT_USER_KEY, safeUser);
-    return safeUser;
-  };
-
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem(CURRENT_USER_KEY);
-  };
-
-  const updateProfile = async (payload) => {
-    if (!user) throw new Error("Bạn cần đăng nhập để cập nhật tài khoản.");
-
-    const users = readJson(USERS_KEY, []);
-    const nextUsers = users.map((item) =>
-      item._id === user._id
-        ? {
-            ...item,
-            name: payload.name.trim(),
-            yearOfBirth: payload.yearOfBirth || "",
-            address: payload.address.trim(),
-            phone: payload.phone.trim(),
-          }
-        : item
-    );
-
-    const updatedUser = removePassword(nextUsers.find((item) => item._id === user._id));
-    writeJson(USERS_KEY, nextUsers);
-    writeJson(CURRENT_USER_KEY, updatedUser);
-    setUser(updatedUser);
-    return updatedUser;
-  };
-
-  const changePassword = async ({ currentPassword, newPassword }) => {
-    if (!user) throw new Error("Bạn cần đăng nhập để đổi mật khẩu.");
-
-    const users = readJson(USERS_KEY, []);
-    const currentUser = users.find((item) => item._id === user._id);
-
-    if (!currentUser || currentUser.password !== currentPassword) {
-      throw new Error("Mật khẩu hiện tại không đúng.");
+  const logout = useCallback(async () => {
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.error("Logout API error:", error);
+    } finally {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("user");
+      setUser(null);
+      navigate("/");
     }
+  }, [navigate]);
 
-    const nextUsers = users.map((item) =>
-      item._id === user._id ? { ...item, password: newPassword } : item
-    );
+  const updateProfile = useCallback(async (profileData) => {
+    try {
+      const response = await fetch("http://localhost:5000/api/blogs/profile", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
+        credentials: "include",
+        body: JSON.stringify(profileData),
+      });
 
-    writeJson(USERS_KEY, nextUsers);
-    return true;
-  };
+      if (!response.ok) {
+        throw new Error("Cập nhật thất bại");
+      }
+
+      const data = await response.json();
+      const updatedUser = data.data;
+      
+      localStorage.setItem("user", JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      
+      return { success: true, user: updatedUser };
+    } catch (error) {
+      return { success: false, message: error.message || "Cập nhật thất bại" };
+    }
+  }, []);
+
+  const changePassword = useCallback(async ({ currentPassword, newPassword }) => {
+    try {
+      const response = await fetch("http://localhost:5000/api/blogs/profile/password", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+        },
+        credentials: "include",
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Đổi mật khẩu thất bại");
+      }
+
+      return { success: true };
+    } catch (error) {
+      return { success: false, message: error.message || "Đổi mật khẩu thất bại" };
+    }
+  }, []);
 
   const value = useMemo(
-    () => ({ user, isAuthenticated: Boolean(user), register, login, logout, updateProfile, changePassword }),
-    [user]
+    () => ({
+      user,
+      isAuthenticated: !!user,
+      loading,
+      login,
+      register,
+      logout,
+      updateProfile,
+      changePassword,
+      setUser,
+    }),
+    [user, loading, login, register, logout, updateProfile, changePassword]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -140,3 +147,5 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export default AuthContext;

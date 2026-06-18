@@ -1,32 +1,57 @@
-import React from "react";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import DataTable from "../../components/DataTable";
-import { comments_data } from "../../assets/assets";
 import { assets } from "../../assets/assets";
+import { commentService } from "../../services/comment.service";
 
 const Comments = () => {
   const [comments, setComments] = useState([]);
   const [approvalFilter, setApprovalFilter] = useState("pending");
   const [loading, setLoading] = useState(false);
+
   const fetchComments = async () => {
     setLoading(true);
-    setComments(comments_data);
-    setLoading(false);
+    try {
+      const response = await commentService.getAll();
+      if (response.data) {
+        setComments(response.data);
+      }
+    } catch (error) {
+      console.error("Failed to fetch comments:", error);
+    } finally {
+      setLoading(false);
+    }
   };
+
   useEffect(() => {
     fetchComments();
   }, []);
 
-  const handleApprove = (commentId) => {
-    setComments((prev) =>
-      prev.map((c) =>
-        c._id === commentId ? { ...c, isApproved: true } : c
-      )
-    );
+  const handleApprove = async (commentId) => {
+    try {
+      await commentService.approve(commentId);
+      setComments((prev) =>
+        prev.map((c) =>
+          c._id === commentId ? { ...c, isApproved: true } : c
+        )
+      );
+    } catch (error) {
+      console.error("Failed to approve comment:", error);
+      alert("Failed to approve comment");
+    }
   };
 
-  const handleDelete = (commentId) => {
-    setComments((prev) => prev.filter((c) => c._id !== commentId));
+  const handleDelete = async (commentId) => {
+    if (!window.confirm("Are you sure you want to delete this comment?")) {
+      return;
+    }
+
+    try {
+      await commentService.delete(commentId);
+      setComments((prev) => prev.filter((c) => c._id !== commentId));
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+      alert("Failed to delete comment");
+    }
   };
 
   const columns = [
@@ -42,8 +67,8 @@ const Comments = () => {
       header: "Blog Title",
       sortable: true,
       render: (item) => (
-        <div className="max-w-xs truncate font-medium text-gray-800" title={item.comment.blog?.title}>
-          {item.comment.blog?.title || "N/A"}
+        <div className="max-w-xs truncate font-medium text-gray-800" title={item.comment?.blog?.title}>
+          {item.comment?.blog?.title || item.blog?.title || "N/A"}
         </div>
       ),
     },
@@ -52,7 +77,9 @@ const Comments = () => {
       header: "Name",
       sortable: true,
       render: (item) => (
-        <span className="font-medium text-gray-700">{item.comment.name}</span>
+        <span className="font-medium text-gray-700">
+          {item.comment?.name || item.user?.name || "Anonymous"}
+        </span>
       ),
     },
     {
@@ -60,8 +87,8 @@ const Comments = () => {
       header: "Comment",
       sortable: false,
       render: (item) => (
-        <div className="max-w-md truncate text-gray-600" title={item.comment.content}>
-          {item.comment.content}
+        <div className="max-w-md truncate text-gray-600" title={item.comment?.content}>
+          {item.comment?.content || item.content}
         </div>
       ),
     },
@@ -70,7 +97,7 @@ const Comments = () => {
       header: "Date",
       sortable: true,
       render: (item) => {
-        const commentDate = new Date(item.comment.createdAt);
+        const commentDate = new Date(item.comment?.createdAt || item.createdAt);
         return (
           <span className="text-gray-600 whitespace-nowrap">
             {commentDate.toLocaleDateString()}
@@ -82,8 +109,9 @@ const Comments = () => {
       field: "isApproved",
       header: "Status",
       sortable: true,
-      render: (item) => (
-        item.comment.isApproved ? (
+      render: (item) => {
+        const isApproved = item.comment?.isApproved ?? item.isApproved;
+        return isApproved ? (
           <span className="px-2 py-1 text-xs border border-green-600 bg-green-100 text-green-600 rounded-full whitespace-nowrap">
             Approved
           </span>
@@ -91,52 +119,68 @@ const Comments = () => {
           <span className="px-2 py-1 text-xs border border-orange-600 bg-orange-100 text-orange-600 rounded-full whitespace-nowrap">
             Pending
           </span>
-        )
-      ),
+        );
+      },
     },
     {
       field: "actions",
       header: "Actions",
       sortable: false,
-      render: (item) => (
-        <div className="flex items-center gap-3">
-          {!item.comment.isApproved && (
+      render: (item) => {
+        const isApproved = item.comment?.isApproved ?? item.isApproved;
+        const commentId = item.comment?._id || item._id;
+        
+        return (
+          <div className="flex items-center gap-3">
+            {!isApproved && (
+              <img
+                src={assets.tick_icon}
+                onClick={() => handleApprove(commentId)}
+                className="w-5 hover:scale-110 transition-all cursor-pointer"
+                alt="Approve"
+                title="Approve"
+              />
+            )}
             <img
-              src={assets.tick_icon}
-              onClick={() => handleApprove(item.comment._id)}
+              src={assets.bin_icon}
+              onClick={() => handleDelete(commentId)}
+              alt="Delete"
+              title="Delete"
               className="w-5 hover:scale-110 transition-all cursor-pointer"
-              alt="Approve"
-              title="Approve"
             />
-          )}
-          <img
-            src={assets.bin_icon}
-            onClick={() => handleDelete(item.comment._id)}
-            alt="Delete"
-            title="Delete"
-            className="w-5 hover:scale-110 transition-all cursor-pointer"
-          />
-        </div>
-      ),
+          </div>
+        );
+      },
     },
   ];
 
+  const getCommentContent = (item) => item.comment?.content || item.content;
+  const getCommentId = (item) => item.comment?._id || item._id;
+  const getCommentIsApproved = (item) => item.comment?.isApproved ?? item.isApproved;
+  const getCommentCreatedAt = (item) => item.comment?.createdAt || item.createdAt;
+  const getCommentName = (item) => item.comment?.name || item.user?.name || "Anonymous";
+  const getBlogTitle = (item) => item.comment?.blog?.title || item.blog?.title || "N/A";
+
   const tableData = comments
     .filter((comment) => {
+      const isApproved = getCommentIsApproved(comment);
       if (approvalFilter === "approved") {
-        return comment.isApproved === true;
+        return isApproved === true;
       }
       if (approvalFilter === "pending") {
-        return comment.isApproved === false;
+        return isApproved === false;
       }
       return true;
     })
     .map((comment, index) => ({
       comment,
       index: index + 1,
-      name: comment.name,
-      content: comment.content,
-      blogTitle: comment.blog?.title || "",
+      content: getCommentContent(comment),
+      _id: getCommentId(comment),
+      isApproved: getCommentIsApproved(comment),
+      createdAt: getCommentCreatedAt(comment),
+      name: getCommentName(comment),
+      blogTitle: getBlogTitle(comment),
     }));
 
   return (
@@ -188,8 +232,8 @@ const Comments = () => {
         searchableFields={["name", "content", "blogTitle"]}
         filterLabel="Approval"
         filterOptions={[
-          { value: "approved", label: "Approved", filterFn: (data) => data.filter((item) => item.comment.isApproved) },
-          { value: "pending", label: "Pending", filterFn: (data) => data.filter((item) => !item.comment.isApproved) },
+          { value: "approved", label: "Approved", filterFn: (data) => data.filter((item) => item.isApproved) },
+          { value: "pending", label: "Pending", filterFn: (data) => data.filter((item) => !item.isApproved) },
         ]}
         defaultSortField="createdAt"
         defaultSortOrder="desc"

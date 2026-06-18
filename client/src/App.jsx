@@ -4,7 +4,7 @@ import { Routes, Route } from "react-router-dom";
 import Home from "./pages/Home";
 import Blog from "./pages/Blog";
 
-import UserLogin from "./pages/UserLogin";
+import UserLogin from "./pages/Login";
 import UserRegister from "./pages/user/UserRegister";
 import UserProfile from "./pages/user/UserProfile";
 
@@ -19,8 +19,10 @@ import ListBlog from "./pages/admin/ListBlog";
 import Comments from "./pages/admin/Comments";
 import Categories from "./pages/admin/Categories";
 import Users from "./pages/admin/Users";
-import Login from "./components/admin/Login";
+import AccountAdmin from "./pages/admin/AccountAdmin";
+import Permissions from "./pages/admin/Permissions";
 import "quill/dist/quill.snow.css";
+
 const App = () => {
   return (
     <Routes>
@@ -51,6 +53,8 @@ const App = () => {
           <Route path="comments" element={<Comments />} />
           <Route path="categories" element={<Categories />} />
           <Route path="users" element={<Users />} />
+          <Route path="accountadmin" element={<AccountAdmin />} />
+          <Route path="permissions" element={<Permissions />} />
         </Route>
       </Route>
     </Routes>

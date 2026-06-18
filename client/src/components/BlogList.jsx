@@ -1,15 +1,47 @@
-import React, { useState, useMemo } from "react";
-import { blogCategories, blog_data } from "../assets/assets";
+import React, { useState, useMemo, useEffect } from "react";
+import { blogCategories } from "../assets/assets";
 import { motion } from "motion/react";
 import BlogCard from "./BlogCard";
+import { blogService } from "../services/blog.service";
 
-const BlogList = () => {
+const BlogList = ({ blogs: propBlogs, categories: propCategories, loading: propLoading, refreshBlogs }) => {
+  const [blogs, setBlogs] = useState(propBlogs || []);
+  const [categories, setCategories] = useState(propCategories || []);
   const [menu, setMenu] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
   const [dateFilter, setDateFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(8);
+  const [loading, setLoading] = useState(propLoading || false);
+
+  useEffect(() => {
+    setBlogs(propBlogs || []);
+  }, [propBlogs]);
+
+  useEffect(() => {
+    setCategories(propCategories || []);
+  }, [propCategories]);
+
+  useEffect(() => {
+    setLoading(propLoading || false);
+  }, [propLoading]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      if (!propCategories || propCategories.length === 0) {
+        try {
+          const response = await blogService.getCategories();
+          if (response.data) {
+            setCategories(response.data);
+          }
+        } catch (error) {
+          console.error("Failed to fetch categories:", error);
+        }
+      }
+    };
+    fetchCategories();
+  }, [propCategories]);
 
   const getDateRange = (filter) => {
     const now = new Date();
@@ -34,25 +66,26 @@ const BlogList = () => {
   };
 
   const filteredAndSortedBlogs = useMemo(() => {
-    let result = [...blog_data];
+    let result = [...blogs];
 
-    // Filter by category
     if (menu !== "All") {
-      result = result.filter((blog) => blog.category === menu);
+      result = result.filter((blog) => {
+        const blogCategory = blog.category?.name || blog.category || "";
+        return blogCategory.toLowerCase() === menu.toLowerCase();
+      });
     }
 
-    // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       result = result.filter(
         (blog) =>
-          blog.title.toLowerCase().includes(query) ||
-          blog.description.toLowerCase().includes(query) ||
-          blog.category.toLowerCase().includes(query)
+          blog.title?.toLowerCase().includes(query) ||
+          blog.description?.toLowerCase().includes(query) ||
+          blog.category?.name?.toLowerCase().includes(query) ||
+          blog.category?.toLowerCase().includes(query)
       );
     }
 
-    // Filter by date
     if (dateFilter !== "all") {
       const range = getDateRange(dateFilter);
       if (range) {
@@ -63,7 +96,6 @@ const BlogList = () => {
       }
     }
 
-    // Sort
     result.sort((a, b) => {
       switch (sortBy) {
         case "newest":
@@ -71,18 +103,16 @@ const BlogList = () => {
         case "oldest":
           return new Date(a.createdAt) - new Date(b.createdAt);
         case "title-asc":
-          return a.title.localeCompare(b.title);
+          return (a.title || "").localeCompare(b.title || "");
         case "title-desc":
-          return b.title.localeCompare(a.title);
+          return (b.title || "").localeCompare(a.title || "");
         default:
           return 0;
       }
     });
 
     return result;
-  }, [menu, searchQuery, sortBy, dateFilter]);
-
-  // Reset to page 1 whenever filters change (handled in onChange handlers below)
+  }, [blogs, menu, searchQuery, sortBy, dateFilter]);
 
   const totalPages = Math.ceil(filteredAndSortedBlogs.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -105,7 +135,6 @@ const BlogList = () => {
     setCurrentPage(1);
   };
 
-  // Wrappers that also reset pagination to page 1
   const handleCategoryChange = (cat) => {
     setMenu(cat);
     setCurrentPage(1);
@@ -125,11 +154,15 @@ const BlogList = () => {
 
   const hasActiveFilters = searchQuery || dateFilter !== "all";
 
+  const categoryList = categories.length > 0 
+    ? ["All", ...categories.map(c => c.name || c)] 
+    : blogCategories;
+
   return (
     <div>
       {/* Category Filter */}
       <div className="flex justify-center gap-4 sm:gap-8 my-10 relative">
-        {blogCategories.map((item) => (
+        {categoryList.map((item) => (
           <div key={item} className="relative">
             <button
               onClick={() => handleCategoryChange(item)}
@@ -221,7 +254,11 @@ const BlogList = () => {
       </div>
 
       {/* Blog Grid */}
-      {filteredAndSortedBlogs.length > 0 ? (
+      {loading ? (
+        <div className="text-center py-16">
+          <p className="text-gray-500">Loading blogs...</p>
+        </div>
+      ) : filteredAndSortedBlogs.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mb-8 mx-8 sm:mx-16 xl:mx-40">
           {paginatedBlogs.map((blog) => (
             <BlogCard key={blog._id} blog={blog} />
