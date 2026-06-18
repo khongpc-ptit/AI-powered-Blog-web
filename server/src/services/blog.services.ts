@@ -69,9 +69,8 @@ class BlogService {
   }
 
   async getBlogById(id: string) {
-    // Cập nhật views + 1 và trả về document mới
     const blog = await databaseService.blogs.findOneAndUpdate(
-      { _id: new ObjectId(id) as any }, // Ép kiểu vì schema bạn đang để string
+      { _id: new ObjectId(id) }, 
       { $inc: { views: 1 } },
       { returnDocument: 'after' }
     )
@@ -95,13 +94,12 @@ class BlogService {
     limit?: number
   }) {
     const skip = (page - 1) * limit
-    // Không lọc is_approved nếu bạn chưa triển khai, nhưng nếu có thì thêm is_approved: true
-    const matchCondition = { blog_id: new ObjectId(blog_id) }
+    const matchCondition = { blog_id: new ObjectId(blog_id), is_approved: true}
 
     const [comments, total] = await Promise.all([
       databaseService.comments
         .find(matchCondition)
-        .sort({ created_at: -1 }) // Mới nhất lên đầu
+        .sort({ created_at: -1 })
         .skip(skip)
         .limit(limit)
         .toArray(),
