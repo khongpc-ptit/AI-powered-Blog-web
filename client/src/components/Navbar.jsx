@@ -20,9 +20,21 @@ const Navbar = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate("/profile")}
-            className="hidden sm:block text-sm px-6 py-2 border border-primary/30 text-primary rounded-full cursor-pointer hover:bg-primary/5 transition-all"
+            className="hidden sm:flex items-center gap-2 text-sm px-6 py-2 border border-primary/30 text-primary rounded-full cursor-pointer hover:bg-primary/5 transition-all"
           >
-            {user.name || "Profile"}
+            {user.avatar ? (
+              <img
+                src={user.avatar}
+                alt={user.name}
+                className="w-6 h-6 rounded-full object-cover"
+                onError={(e) => {
+                  e.target.style.display = "none";
+                }}
+              />
+            ) : null}
+            <span className={user.avatar ? "pl-1" : ""}>
+              {user.name || "Profile"}
+            </span>
           </button>
 
           <button

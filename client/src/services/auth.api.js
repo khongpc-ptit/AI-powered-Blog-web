@@ -10,16 +10,18 @@ const getHeaders = () => {
 
 const handleResponse = async (response) => {
   const data = await response.json();
-  
+
   if (!response.ok) {
     if (data.errors) {
-      const firstError = Object.values(data.errors)[0];
-      const errorMessage = firstError?.msg || "Validation error";
-      throw { message: errorMessage, status: response.status, errors: data.errors };
+      const fieldErrors = {};
+      Object.keys(data.errors).forEach((field) => {
+        fieldErrors[field] = { msg: data.errors[field].msg || data.errors[field] };
+      });
+      throw { message: data.message || "Validation error", status: response.status, errors: fieldErrors };
     }
     throw { message: data.message || "An error occurred", status: response.status };
   }
-  
+
   return data;
 };
 

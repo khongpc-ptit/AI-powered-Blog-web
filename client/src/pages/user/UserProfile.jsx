@@ -1,15 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import { useAuth } from "../../context/AuthContext";
 import { assets } from "../../assets/assets";
 
 const UserProfile = () => {
-  const { user, updateProfile, changePassword } = useAuth();
+  const { user, updateProfile, changePassword, refreshUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatar || "");
   const [profileForm, setProfileForm] = useState({
     name: user?.name || "",
-    date_of_birth: user?.date_of_birth || "",
+    date_of_birth: user?.date_of_birth ? user.date_of_birth.split("T")[0] : "",
     location: user?.location || "",
   });
   const [passwordForm, setPasswordForm] = useState({
@@ -21,6 +22,20 @@ const UserProfile = () => {
   const [error, setError] = useState("");
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setAvatarUrl(user.avatar || "");
+      setProfileForm({
+        name: user.name || "",
+        date_of_birth: user.date_of_birth ? user.date_of_birth.split("T")[0] : "",
+        location: user.location || "",
+      });
+    }
+  }, [user]);
 
   const handleProfileChange = (e) => {
     setProfileForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -43,8 +58,23 @@ const UserProfile = () => {
     setMessage("");
     setErrors({});
 
+    const payload = {};
+    if (profileForm.name !== (user?.name || "")) payload.name = profileForm.name;
+    if (profileForm.date_of_birth !== (user?.date_of_birth ? user.date_of_birth.split("T")[0] : "")) {
+      payload.date_of_birth = profileForm.date_of_birth;
+    }
+    if (profileForm.location !== (user?.location || "")) payload.location = profileForm.location;
+    if (avatarUrl !== (user?.avatar || "")) payload.avatar = avatarUrl;
+
+    if (Object.keys(payload).length === 0) {
+      setError("Không có thông tin nào được thay đổi.");
+      setLoading(false);
+      return;
+    }
+
     try {
-      await updateProfile(profileForm);
+      await updateProfile(payload);
+      await refreshUserProfile();
       setMessage("Cập nhật thông tin tài khoản thành công.");
     } catch (err) {
       if (err.errors) {
@@ -117,7 +147,23 @@ const UserProfile = () => {
             <div className="mb-8 rounded-2xl bg-white border border-primary/15 shadow-xl shadow-primary/10 p-6 sm:p-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary text-2xl font-semibold">
+                  {user?.avatar ? (
+                    <img
+                      src={user.avatar}
+                      alt={user?.name}
+                      className="h-16 w-16 rounded-full object-cover border-2 border-primary/20"
+                      onError={(e) => {
+                        e.target.style.display = "none";
+                        e.target.nextSibling.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className={`flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary text-2xl font-semibold ${
+                      user?.avatar ? "hidden" : ""
+                    }`}
+                    style={{ display: user?.avatar ? "none" : "flex" }}
+                  >
                     {user?.name?.charAt(0)?.toUpperCase() || "U"}
                   </div>
                   <div>
@@ -211,6 +257,36 @@ const UserProfile = () => {
                 </div>
 
                 <div>
+                  <label className="text-sm font-medium">Avatar URL</label>
+                  <input
+                    name="avatar"
+                    value={avatarUrl}
+                    onChange={(e) => setAvatarUrl(e.target.value)}
+                    type="url"
+                    disabled={loading}
+                    placeholder="https://example.com/avatar.png"
+                    className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                      errors.avatar ? "border-red-500" : "border-gray-300"
+                    }`}
+                  />
+                  {errors.avatar && (
+                    <p className="mt-1 text-xs text-red-500">{errors.avatar}</p>
+                  )}
+                  {avatarUrl && (
+                    <div className="mt-2">
+                      <img
+                        src={avatarUrl}
+                        alt="Avatar preview"
+                        className="w-16 h-16 rounded-full object-cover border-2 border-primary/20"
+                        onError={(e) => {
+                          e.target.src = "https://via.placeholder.com/64?text=Invalid+URL";
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
                   <label className="text-sm font-medium">Email</label>
                   <input
                     name="email"
@@ -284,17 +360,36 @@ const UserProfile = () => {
                     <label className="text-sm font-medium">
                       Current password
                     </label>
-                    <input
-                      name="password"
-                      value={passwordForm.password}
-                      onChange={handlePasswordChange}
-                      type="password"
-                      required
-                      disabled={loading}
-                      className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
-                        errors.password ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
+                    <div className="relative">
+                      <input
+                        name="password"
+                        value={passwordForm.password}
+                        onChange={handlePasswordChange}
+                        type={showPassword ? "text" : "password"}
+                        required
+                        disabled={loading}
+                        placeholder="Enter your current password"
+                        className={`mt-2 w-full rounded-lg border px-4 py-3 pr-12 outline-none focus:border-primary ${
+                          errors.password ? "border-red-500" : "border-gray-300"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                     {errors.password && (
                       <p className="mt-1 text-xs text-red-500">{errors.password}</p>
                     )}
@@ -302,38 +397,78 @@ const UserProfile = () => {
 
                   <div>
                     <label className="text-sm font-medium">New password</label>
-                    <input
-                      name="new_password"
-                      value={passwordForm.new_password}
-                      onChange={handlePasswordChange}
-                      type="password"
-                      required
-                      disabled={loading}
-                      placeholder="At least 6 characters with uppercase, lowercase, number and symbol"
-                      className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
-                        errors.new_password ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
+                    <div className="relative">
+                      <input
+                        name="new_password"
+                        value={passwordForm.new_password}
+                        onChange={handlePasswordChange}
+                        type={showNewPassword ? "text" : "password"}
+                        required
+                        disabled={loading}
+                        placeholder="At least 6 characters"
+                        className={`mt-2 w-full rounded-lg border px-4 py-3 pr-12 outline-none focus:border-primary ${
+                          errors.new_password ? "border-red-500" : "border-gray-300"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showNewPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                     {errors.new_password && (
                       <p className="mt-1 text-xs text-red-500">{errors.new_password}</p>
                     )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      Tối thiểu 6 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.
+                    </p>
                   </div>
 
                   <div>
                     <label className="text-sm font-medium">
                       Confirm new password
                     </label>
-                    <input
-                      name="confirm_password"
-                      value={passwordForm.confirm_password}
-                      onChange={handlePasswordChange}
-                      type="password"
-                      required
-                      disabled={loading}
-                      className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
-                        errors.confirm_password ? "border-red-500" : "border-gray-300"
-                      }`}
-                    />
+                    <div className="relative">
+                      <input
+                        name="confirm_password"
+                        value={passwordForm.confirm_password}
+                        onChange={handlePasswordChange}
+                        type={showConfirmPassword ? "text" : "password"}
+                        required
+                        disabled={loading}
+                        placeholder="Re-enter your new password"
+                        className={`mt-2 w-full rounded-lg border px-4 py-3 pr-12 outline-none focus:border-primary ${
+                          errors.confirm_password ? "border-red-500" : "border-gray-300"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showConfirmPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                     {errors.confirm_password && (
                       <p className="mt-1 text-xs text-red-500">{errors.confirm_password}</p>
                     )}
