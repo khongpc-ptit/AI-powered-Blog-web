@@ -48,7 +48,6 @@ class AuthService {
       })
     )
     const user_id = result.insertedId.toString()
-    console.log('tới đây')
     const [accessToken, refreshToken] = await this.signAccessAndRefreshToken(user_id)
     // luu vao refresh tokens vào database
     await databaseService.refreshTokens.insertOne(
@@ -74,6 +73,11 @@ class AuthService {
       message: USER_MESSAGES.LOGOUT_SUCCESS
     }
   }
+  async refreshAccessToken(user_id: string) {
+    const accessToken = await this.signAccessToken(user_id)
+    return { accessToken }
+  }
 }
+
 const authService = new AuthService()
 export default authService
