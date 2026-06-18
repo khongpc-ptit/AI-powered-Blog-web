@@ -21,8 +21,8 @@ export const updateProfileController = async (
 ) => {
   const { user_id } = req.decoded_authorization as TokenPayload
 
-  const { name, date_of_birth, location, avatar } = req.body
-  const body = { name, date_of_birth, location, avatar }
+  const { name, date_of_birth, location } = req.body
+  const body = { name, date_of_birth, location }
 
   const updatedUser = await userService.updateProfile(user_id, body)
 

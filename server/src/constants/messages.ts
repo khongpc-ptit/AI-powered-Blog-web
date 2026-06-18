@@ -43,7 +43,6 @@ export const USER_MESSAGES = {
   NAME_LENGTH_MUST_BE_FROM_1_TO_100: 'Name length must be from 1 to 100 characters',
   DATE_OF_BIRTH_MUST_BE_ISO8601: 'Date of birth must be a valid ISO 8601 format',
   LOCATION_MUST_BE_A_STRING: 'Location must be a string',
-  AVATAR_MUST_BE_A_VALID_URL: 'Avatar must be a valid URL format',
   UPDATE_PROFILE_SUCCESS: 'Update profile successfully',
   //Change password
   CHANGE_PASSWORD_SUCCESS: 'Change password successfully',

@@ -7,7 +7,6 @@ import { assets } from "../../assets/assets";
 const UserProfile = () => {
   const { user, updateProfile, changePassword, refreshUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatar || "");
   const [profileForm, setProfileForm] = useState({
     name: user?.name || "",
     date_of_birth: user?.date_of_birth ? user.date_of_birth.split("T")[0] : "",
@@ -28,7 +27,6 @@ const UserProfile = () => {
 
   useEffect(() => {
     if (user) {
-      setAvatarUrl(user.avatar || "");
       setProfileForm({
         name: user.name || "",
         date_of_birth: user.date_of_birth ? user.date_of_birth.split("T")[0] : "",
@@ -64,7 +62,6 @@ const UserProfile = () => {
       payload.date_of_birth = profileForm.date_of_birth;
     }
     if (profileForm.location !== (user?.location || "")) payload.location = profileForm.location;
-    if (avatarUrl !== (user?.avatar || "")) payload.avatar = avatarUrl;
 
     if (Object.keys(payload).length === 0) {
       setError("Không có thông tin nào được thay đổi.");
@@ -147,23 +144,7 @@ const UserProfile = () => {
             <div className="mb-8 rounded-2xl bg-white border border-primary/15 shadow-xl shadow-primary/10 p-6 sm:p-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
                 <div className="flex items-center gap-4">
-                  {user?.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={user?.name}
-                      className="h-16 w-16 rounded-full object-cover border-2 border-primary/20"
-                      onError={(e) => {
-                        e.target.style.display = "none";
-                        e.target.nextSibling.style.display = "flex";
-                      }}
-                    />
-                  ) : null}
-                  <div
-                    className={`flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary text-2xl font-semibold ${
-                      user?.avatar ? "hidden" : ""
-                    }`}
-                    style={{ display: user?.avatar ? "none" : "flex" }}
-                  >
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary text-2xl font-semibold">
                     {user?.name?.charAt(0)?.toUpperCase() || "U"}
                   </div>
                   <div>
@@ -253,36 +234,6 @@ const UserProfile = () => {
                   />
                   {errors.name && (
                     <p className="mt-1 text-xs text-red-500">{errors.name}</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium">Avatar URL</label>
-                  <input
-                    name="avatar"
-                    value={avatarUrl}
-                    onChange={(e) => setAvatarUrl(e.target.value)}
-                    type="url"
-                    disabled={loading}
-                    placeholder="https://example.com/avatar.png"
-                    className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
-                      errors.avatar ? "border-red-500" : "border-gray-300"
-                    }`}
-                  />
-                  {errors.avatar && (
-                    <p className="mt-1 text-xs text-red-500">{errors.avatar}</p>
-                  )}
-                  {avatarUrl && (
-                    <div className="mt-2">
-                      <img
-                        src={avatarUrl}
-                        alt="Avatar preview"
-                        className="w-16 h-16 rounded-full object-cover border-2 border-primary/20"
-                        onError={(e) => {
-                          e.target.src = "https://via.placeholder.com/64?text=Invalid+URL";
-                        }}
-                      />
-                    </div>
                   )}
                 </div>
 
