@@ -74,8 +74,31 @@ export const AuthProvider = ({ children }) => {
   };
 
   const changePassword = async ({ password, new_password, confirm_password }) => {
-    const data = await userApi.changePassword({ password, new_password, confirm_password });
-    return data;
+    if (!password) {
+      throw { message: "Mật khẩu cũ không được để trống.", errors: { password: { msg: "Old password is required" } } };
+    }
+    if (password.length < 6 || password.length > 50) {
+      throw { message: "Mật khẩu cũ phải từ 6 đến 50 ký tự.", errors: { password: { msg: "Password must be between 6 and 50 characters" } } };
+    }
+    if (!new_password) {
+      throw { message: "Mật khẩu mới không được để trống.", errors: { new_password: { msg: "Password must be at least 6 characters long and contain at least 1 lowercase letter, 1 uppercase letter, 1 number, and 1 symbol" } } };
+    }
+    if (new_password.length < 6 || new_password.length > 50) {
+      throw { message: "Mật khẩu mới phải từ 6 đến 50 ký tự.", errors: { new_password: { msg: "Password must be between 6 and 50 characters" } } };
+    }
+    if (new_password !== confirm_password) {
+      throw { message: "Mật khẩu mới không khớp.", errors: { confirm_password: { msg: "Confirm password must match password" } } };
+    }
+
+    try {
+      const data = await userApi.changePassword({ password, new_password, confirm_password });
+      return data;
+    } catch (error) {
+      if (error.status === 400 && error.message === "Old password is incorrect") {
+        throw { message: "Mật khẩu cũ không đúng.", errors: { password: { msg: "Old password is incorrect" } } };
+      }
+      throw error;
+    }
   };
 
   const value = useMemo(
