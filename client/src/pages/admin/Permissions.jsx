@@ -6,9 +6,13 @@ import {
   ROLE_CODES,
 } from "../../constants/rbac";
 import {
+  createCustomRole,
+  deleteCustomRole,
+  getAllRoles,
   getCurrentUser,
   getRolePermissions,
   isSuperAdmin,
+  makeRoleCode,
   resetRolePermissions,
   saveRolePermissions,
 } from "../../utils/permission";
@@ -17,21 +21,23 @@ const Permissions = () => {
   const currentUser = getCurrentUser();
   const canEdit = isSuperAdmin(currentUser);
 
-  const roles = useMemo(() => Object.values(DEFAULT_ROLES), []);
+  const [rolesMap, setRolesMap] = useState(() => getAllRoles());
 
-  const editableRoles = useMemo(
-    () => roles.filter((role) => role.code !== ROLE_CODES.SUPER_ADMIN),
-    [roles],
+  const roles = useMemo(() => Object.values(rolesMap), [rolesMap]);
+
+  const firstEditableRole = roles.find(
+    (role) => role.code !== ROLE_CODES.SUPER_ADMIN,
   );
 
   const [selectedRoleCode, setSelectedRoleCode] = useState(
-    editableRoles[0]?.code || ROLE_CODES.ADMIN,
+    firstEditableRole?.code || ROLE_CODES.ADMIN,
   );
 
   const [rolePermissions, setRolePermissions] = useState(() => {
     const initialData = {};
+    const allRoles = getAllRoles();
 
-    roles.forEach((role) => {
+    Object.values(allRoles).forEach((role) => {
       initialData[role.code] = getRolePermissions(role.code);
     });
 
@@ -39,10 +45,16 @@ const Permissions = () => {
   });
 
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
-  const selectedRole = DEFAULT_ROLES[selectedRoleCode];
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleCode, setNewRoleCode] = useState("");
+  const [newRoleDescription, setNewRoleDescription] = useState("");
 
+  const selectedRole = rolesMap[selectedRoleCode];
   const selectedRolePermissions = rolePermissions[selectedRoleCode] || [];
+  const roleCodePreview = makeRoleCode(newRoleCode || newRoleName);
 
   const hasPermission = (permissionCode) => {
     return selectedRolePermissions.includes(permissionCode);
@@ -56,12 +68,17 @@ const Permissions = () => {
 
   const canTogglePermission = (permissionCode) => {
     if (!canEdit) return false;
-
     if (isSelectedRoleLocked) return false;
-
     if (isLockedPermission(permissionCode)) return false;
 
     return true;
+  };
+
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setNewRoleName("");
+    setNewRoleCode("");
+    setNewRoleDescription("");
   };
 
   const handleTogglePermission = (permissionCode) => {
@@ -69,7 +86,6 @@ const Permissions = () => {
 
     setRolePermissions((prev) => {
       const currentPermissions = prev[selectedRoleCode] || [];
-
       const isExisting = currentPermissions.includes(permissionCode);
 
       const updatedPermissions = isExisting
@@ -83,9 +99,92 @@ const Permissions = () => {
     });
 
     setMessage("");
+    setError("");
+  };
+
+  const handleCreateRole = (e) => {
+    e.preventDefault();
+
+    if (!canEdit) {
+      setError("Chỉ Super Admin mới được tạo role mới.");
+      return;
+    }
+
+    const result = createCustomRole({
+      label: newRoleName,
+      code: newRoleCode,
+      description: newRoleDescription,
+    });
+
+    if (!result.success) {
+      setError(result.message);
+      setMessage("");
+      return;
+    }
+
+    const updatedRoles = getAllRoles();
+
+    setRolesMap(updatedRoles);
+    setRolePermissions((prev) => ({
+      ...prev,
+      [result.role.code]: [],
+    }));
+
+    setSelectedRoleCode(result.role.code);
+    closeCreateModal();
+
+    setError("");
+    setMessage(`Đã tạo role "${result.role.label}" thành công.`);
+  };
+
+  const handleDeleteRole = (roleCode) => {
+    if (!canEdit) return;
+
+    const role = rolesMap[roleCode];
+
+    if (!role?.isCustom) {
+      setError("Không thể xóa role mặc định của hệ thống.");
+      setMessage("");
+      return;
+    }
+
+    const confirmDelete = window.confirm(
+      `Bạn có chắc muốn xóa role "${role.label}" không?`,
+    );
+
+    if (!confirmDelete) return;
+
+    const result = deleteCustomRole(roleCode);
+
+    if (!result.success) {
+      setError(result.message);
+      setMessage("");
+      return;
+    }
+
+    const updatedRoles = getAllRoles();
+    setRolesMap(updatedRoles);
+
+    setRolePermissions((prev) => {
+      const cloned = { ...prev };
+      delete cloned[roleCode];
+      return cloned;
+    });
+
+    const nextRole =
+      Object.values(updatedRoles).find(
+        (item) => item.code !== ROLE_CODES.SUPER_ADMIN,
+      ) || DEFAULT_ROLES[ROLE_CODES.ADMIN];
+
+    setSelectedRoleCode(nextRole.code);
+
+    setError("");
+    setMessage("Đã xóa role thành công.");
   };
 
   const handleSave = () => {
+    if (!canEdit) return;
+
     const dataToSave = {};
 
     roles.forEach((role) => {
@@ -96,12 +195,15 @@ const Permissions = () => {
 
     saveRolePermissions(dataToSave);
 
+    setError("");
     setMessage("Đã lưu thay đổi phân quyền thành công.");
   };
 
   const handleResetDefault = () => {
+    if (!canEdit) return;
+
     const confirmReset = window.confirm(
-      "Bạn có chắc muốn đưa toàn bộ quyền về mặc định không?",
+      "Bạn có chắc muốn đưa toàn bộ quyền về mặc định không? Role tự tạo vẫn được giữ lại nhưng quyền sẽ bị reset.",
     );
 
     if (!confirmReset) return;
@@ -111,10 +213,15 @@ const Permissions = () => {
     const defaultData = {};
 
     roles.forEach((role) => {
-      defaultData[role.code] = DEFAULT_ROLES[role.code].permissions;
+      defaultData[role.code] = role.permissions || [];
     });
 
+    defaultData[ROLE_CODES.SUPER_ADMIN] =
+      DEFAULT_ROLES[ROLE_CODES.SUPER_ADMIN].permissions;
+
     setRolePermissions(defaultData);
+
+    setError("");
     setMessage("Đã reset quyền về mặc định.");
   };
 
@@ -129,9 +236,26 @@ const Permissions = () => {
           <h1 className="text-2xl font-semibold text-gray-800">
             Roles & Permissions
           </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Super Admin có thể tạo role mới và phân quyền trực tiếp trên giao
+            diện.
+          </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(true)}
+            disabled={!canEdit}
+            className={`px-4 py-2 rounded text-sm ${
+              canEdit
+                ? "bg-primary text-white cursor-pointer hover:bg-primary/90"
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            }`}
+          >
+            Create Role New
+          </button>
+
           <button
             type="button"
             onClick={handleResetDefault}
@@ -162,7 +286,7 @@ const Permissions = () => {
 
       {!canEdit && (
         <div className="mb-5 bg-red-50 border border-red-100 text-red-600 rounded-lg p-4 text-sm">
-          Chỉ Super Admin mới được thay đổi quyền của các role.
+          Chỉ Super Admin mới được tạo role và thay đổi quyền của role.
         </div>
       )}
 
@@ -172,17 +296,25 @@ const Permissions = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-6">
-        {/* LEFT: Role list */}
+      {error && (
+        <div className="mb-5 bg-red-50 border border-red-100 text-red-600 rounded-lg p-4 text-sm">
+          {error}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-6">
+        {/* Role list */}
         <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden h-fit">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-800">Role List</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Chọn role cần phân quyền.
-            </p>
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold text-gray-800">Role List</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Chọn role cần phân quyền.
+              </p>
+            </div>
           </div>
 
-          <div className="p-3 flex flex-col gap-2 max-h-[650px] overflow-y-auto">
+          <div className="p-3 flex flex-col gap-2 max-h-[680px] overflow-y-auto">
             {roles.map((role) => {
               const isActive = selectedRoleCode === role.code;
               const isSuper = role.code === ROLE_CODES.SUPER_ADMIN;
@@ -206,27 +338,49 @@ const Permissions = () => {
                       <p className="text-xs text-gray-400 mt-1">{role.code}</p>
                     </div>
 
-                    {isSuper && (
-                      <span className="text-[10px] px-2 py-1 rounded-full bg-orange-50 text-orange-600 border border-orange-100">
-                        LOCKED
-                      </span>
-                    )}
+                    <div className="flex flex-col items-end gap-2">
+                      {isSuper && (
+                        <span className="text-[10px] px-2 py-1 rounded-full bg-orange-50 text-orange-600 border border-orange-100">
+                          LOCKED
+                        </span>
+                      )}
+
+                      {role.isCustom && (
+                        <span className="text-[10px] px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                          CUSTOM
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <p className="text-xs text-gray-500 mt-3 leading-5">
                     {role.description}
                   </p>
 
-                  <p className="text-xs text-primary mt-3 font-medium">
-                    {countPermissionsByRole(role.code)} permissions
-                  </p>
+                  <div className="flex items-center justify-between mt-3">
+                    <p className="text-xs text-primary font-medium">
+                      {countPermissionsByRole(role.code)} permissions
+                    </p>
+
+                    {role.isCustom && canEdit && (
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteRole(role.code);
+                        }}
+                        className="text-xs text-red-500 hover:underline"
+                      >
+                        Delete
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             })}
           </div>
         </div>
 
-        {/* RIGHT: Permission checklist */}
+        {/* Permission checklist */}
         <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
             <div>
@@ -303,7 +457,8 @@ const Permissions = () => {
                           {permission.code ===
                             PERMISSIONS.MANAGE_PERMISSION && (
                             <p className="text-xs text-orange-500 mt-2">
-                              Quyền này chỉ dành cho Super Admin
+                              Quyền này chỉ dành cho Super Admin, không cấp cho
+                              role khác trên giao diện demo.
                             </p>
                           )}
                         </div>
@@ -317,7 +472,92 @@ const Permissions = () => {
         </div>
       </div>
 
-      <div className="mt-6 bg-yellow-50 border border-yellow-100 text-yellow-700 rounded-lg p-4 text-sm"></div>
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-lg bg-white rounded-xl shadow-xl border border-gray-100">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">
+                  Create New Role
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Tạo role mới để phân quyền.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeCreateModal}
+                className="text-gray-400 hover:text-gray-700 text-2xl leading-none cursor-pointer"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRole} className="p-6 space-y-4">
+              <div>
+                <label className="text-sm text-gray-600">Role name</label>
+                <input
+                  type="text"
+                  value={newRoleName}
+                  onChange={(e) => setNewRoleName(e.target.value)}
+                  placeholder="VD: Content X"
+                  autoFocus
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-600">
+                  Role code{" "}
+                  <span className="text-xs text-gray-400">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={newRoleCode}
+                  onChange={(e) => setNewRoleCode(e.target.value)}
+                  placeholder="VD: content_x"
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded outline-none focus:border-primary"
+                />
+
+                {roleCodePreview && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Code sẽ lưu:{" "}
+                    <span className="text-primary">{roleCodePreview}</span>
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="text-sm text-gray-600">Description</label>
+                <textarea
+                  value={newRoleDescription}
+                  onChange={(e) => setNewRoleDescription(e.target.value)}
+                  placeholder="Mô tả role này..."
+                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded outline-none focus:border-primary h-24 resize-none"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeCreateModal}
+                  className="px-4 py-2 rounded text-sm border bg-white text-gray-700 hover:bg-gray-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded text-sm bg-primary text-white hover:bg-primary/90 cursor-pointer"
+                >
+                  Create Role
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
