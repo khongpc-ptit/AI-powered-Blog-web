@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   DEFAULT_ROLES,
   PERMISSION_GROUPS,
@@ -13,27 +13,26 @@ import {
   saveRolePermissions,
 } from "../../utils/permission";
 
-const roleOrder = [
-  ROLE_CODES.SUPER_ADMIN,
-  ROLE_CODES.ADMIN,
-  ROLE_CODES.CONTENT_MANAGER,
-  ROLE_CODES.BLOGGER,
-];
-
-const editableRoles = [
-  ROLE_CODES.ADMIN,
-  ROLE_CODES.CONTENT_MANAGER,
-  ROLE_CODES.BLOGGER,
-];
-
 const Permissions = () => {
   const currentUser = getCurrentUser();
+  const canEdit = isSuperAdmin(currentUser);
+
+  const roles = useMemo(() => Object.values(DEFAULT_ROLES), []);
+
+  const editableRoles = useMemo(
+    () => roles.filter((role) => role.code !== ROLE_CODES.SUPER_ADMIN),
+    [roles],
+  );
+
+  const [selectedRoleCode, setSelectedRoleCode] = useState(
+    editableRoles[0]?.code || ROLE_CODES.ADMIN,
+  );
 
   const [rolePermissions, setRolePermissions] = useState(() => {
     const initialData = {};
 
-    roleOrder.forEach((roleCode) => {
-      initialData[roleCode] = getRolePermissions(roleCode);
+    roles.forEach((role) => {
+      initialData[role.code] = getRolePermissions(role.code);
     });
 
     return initialData;
@@ -41,31 +40,35 @@ const Permissions = () => {
 
   const [message, setMessage] = useState("");
 
-  const canEdit = isSuperAdmin(currentUser);
+  const selectedRole = DEFAULT_ROLES[selectedRoleCode];
 
-  const hasPermission = (roleCode, permissionCode) => {
-    return rolePermissions[roleCode]?.includes(permissionCode);
+  const selectedRolePermissions = rolePermissions[selectedRoleCode] || [];
+
+  const hasPermission = (permissionCode) => {
+    return selectedRolePermissions.includes(permissionCode);
   };
+
+  const isSelectedRoleLocked = selectedRoleCode === ROLE_CODES.SUPER_ADMIN;
 
   const isLockedPermission = (permissionCode) => {
     return permissionCode === PERMISSIONS.MANAGE_PERMISSION;
   };
 
-  const canTogglePermission = (roleCode, permissionCode) => {
+  const canTogglePermission = (permissionCode) => {
     if (!canEdit) return false;
 
-    if (!editableRoles.includes(roleCode)) return false;
+    if (isSelectedRoleLocked) return false;
 
     if (isLockedPermission(permissionCode)) return false;
 
     return true;
   };
 
-  const handleTogglePermission = (roleCode, permissionCode) => {
-    if (!canTogglePermission(roleCode, permissionCode)) return;
+  const handleTogglePermission = (permissionCode) => {
+    if (!canTogglePermission(permissionCode)) return;
 
     setRolePermissions((prev) => {
-      const currentPermissions = prev[roleCode] || [];
+      const currentPermissions = prev[selectedRoleCode] || [];
 
       const isExisting = currentPermissions.includes(permissionCode);
 
@@ -75,7 +78,7 @@ const Permissions = () => {
 
       return {
         ...prev,
-        [roleCode]: updatedPermissions,
+        [selectedRoleCode]: updatedPermissions,
       };
     });
 
@@ -83,12 +86,13 @@ const Permissions = () => {
   };
 
   const handleSave = () => {
-    const dataToSave = {
-      [ROLE_CODES.ADMIN]: rolePermissions[ROLE_CODES.ADMIN] || [],
-      [ROLE_CODES.CONTENT_MANAGER]:
-        rolePermissions[ROLE_CODES.CONTENT_MANAGER] || [],
-      [ROLE_CODES.BLOGGER]: rolePermissions[ROLE_CODES.BLOGGER] || [],
-    };
+    const dataToSave = {};
+
+    roles.forEach((role) => {
+      if (role.code !== ROLE_CODES.SUPER_ADMIN) {
+        dataToSave[role.code] = rolePermissions[role.code] || [];
+      }
+    });
 
     saveRolePermissions(dataToSave);
 
@@ -106,24 +110,25 @@ const Permissions = () => {
 
     const defaultData = {};
 
-    roleOrder.forEach((roleCode) => {
-      defaultData[roleCode] = DEFAULT_ROLES[roleCode].permissions;
+    roles.forEach((role) => {
+      defaultData[role.code] = DEFAULT_ROLES[role.code].permissions;
     });
 
     setRolePermissions(defaultData);
     setMessage("Đã reset quyền về mặc định.");
   };
 
+  const countPermissionsByRole = (roleCode) => {
+    return rolePermissions[roleCode]?.length || 0;
+  };
+
   return (
     <div className="flex-1 p-4 md:p-10 bg-blue-50/50 overflow-y-auto">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800">
             Roles & Permissions
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Super Admin có thể tick/bỏ tick quyền cho từng role trong hệ thống.
-          </p>
         </div>
 
         <div className="flex gap-3">
@@ -167,130 +172,148 @@ const Permissions = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
-        {roleOrder.map((roleCode) => {
-          const role = DEFAULT_ROLES[roleCode];
+      <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-6">
+        {/* LEFT: Role list */}
+        <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden h-fit">
+          <div className="px-5 py-4 border-b border-gray-100">
+            <h2 className="font-semibold text-gray-800">Role List</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Chọn role cần phân quyền.
+            </p>
+          </div>
 
-          return (
-            <div
-              key={role.code}
-              className={`bg-white p-4 rounded-lg shadow border ${
-                role.code === ROLE_CODES.SUPER_ADMIN
-                  ? "border-primary/40"
-                  : "border-gray-100"
-              }`}
-            >
-              <h2 className="font-semibold text-gray-800">{role.label}</h2>
-              <p className="text-xs text-gray-500 mt-2 leading-5">
-                {role.description}
-              </p>
-              <p className="text-xs text-primary mt-3 font-medium">
-                {rolePermissions[roleCode]?.length || 0} permissions
-              </p>
+          <div className="p-3 flex flex-col gap-2 max-h-[650px] overflow-y-auto">
+            {roles.map((role) => {
+              const isActive = selectedRoleCode === role.code;
+              const isSuper = role.code === ROLE_CODES.SUPER_ADMIN;
 
-              {role.code === ROLE_CODES.SUPER_ADMIN && (
-                <p className="text-xs text-orange-500 mt-2">
-                  Role này bị khóa, không được chỉnh quyền.
-                </p>
-              )}
-            </div>
-          );
-        })}
-      </div>
+              return (
+                <button
+                  key={role.code}
+                  type="button"
+                  onClick={() => setSelectedRoleCode(role.code)}
+                  className={`text-left rounded-lg border p-4 transition-all cursor-pointer ${
+                    isActive
+                      ? "border-primary bg-primary/5"
+                      : "border-gray-100 bg-white hover:border-primary/40 hover:bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h3 className="font-semibold text-gray-800">
+                        {role.label}
+                      </h3>
+                      <p className="text-xs text-gray-400 mt-1">{role.code}</p>
+                    </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-800">Permission Matrix</h2>
-          <p className="text-sm text-gray-500">
-            Tick vào ô để cấp quyền, bỏ tick để thu hồi quyền.
-          </p>
+                    {isSuper && (
+                      <span className="text-[10px] px-2 py-1 rounded-full bg-orange-50 text-orange-600 border border-orange-100">
+                        LOCKED
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-gray-500 mt-3 leading-5">
+                    {role.description}
+                  </p>
+
+                  <p className="text-xs text-primary mt-3 font-medium">
+                    {countPermissionsByRole(role.code)} permissions
+                  </p>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-gray-600">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
-              <tr>
-                <th className="px-5 py-4 text-left min-w-72">Permission</th>
-                <th className="px-5 py-4 text-center">Super Admin</th>
-                <th className="px-5 py-4 text-center">Admin</th>
-                <th className="px-5 py-4 text-center">Content Manager</th>
-                <th className="px-5 py-4 text-center">Blogger</th>
-              </tr>
-            </thead>
+        {/* RIGHT: Permission checklist */}
+        <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-gray-800">
+                Permissions for{" "}
+                <span className="text-primary">{selectedRole?.label}</span>
+              </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                {selectedRole?.description}
+              </p>
+            </div>
 
-            <tbody>
-              {PERMISSION_GROUPS.map((group) => (
-                <React.Fragment key={group.title}>
-                  <tr className="bg-primary/5">
-                    <td
-                      colSpan="5"
-                      className="px-5 py-3 font-semibold text-primary"
-                    >
-                      {group.title}
-                    </td>
-                  </tr>
+            <div className="text-sm bg-primary/5 text-primary px-4 py-2 rounded-lg h-fit">
+              {selectedRolePermissions.length} permissions selected
+            </div>
+          </div>
 
-                  {group.permissions.map((permission) => (
-                    <tr
-                      key={permission.code}
-                      className="border-t border-gray-100 hover:bg-gray-50"
-                    >
-                      <td className="px-5 py-4">
-                        <p className="font-medium text-gray-800">
-                          {permission.label}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-1">
-                          {permission.code}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {permission.description}
-                        </p>
+          {isSelectedRoleLocked && (
+            <div className="m-5 bg-orange-50 border border-orange-100 text-orange-600 rounded-lg p-4 text-sm">
+              Super Admin là role toàn quyền và bị khóa, không thể chỉnh quyền
+              trực tiếp trên giao diện.
+            </div>
+          )}
 
-                        {permission.code === PERMISSIONS.MANAGE_PERMISSION && (
-                          <p className="text-xs text-orange-500 mt-1">
-                            Quyền này chỉ dành cho Super Admin.
+          <div className="p-5 space-y-5">
+            {PERMISSION_GROUPS.map((group) => (
+              <div
+                key={group.title}
+                className="border border-gray-100 rounded-lg overflow-hidden"
+              >
+                <div className="bg-primary/5 px-4 py-3">
+                  <h3 className="font-semibold text-primary">{group.title}</h3>
+                </div>
+
+                <div className="divide-y divide-gray-100">
+                  {group.permissions.map((permission) => {
+                    const checked = hasPermission(permission.code);
+                    const disabled = !canTogglePermission(permission.code);
+
+                    return (
+                      <label
+                        key={permission.code}
+                        className={`flex items-start gap-4 p-4 ${
+                          disabled
+                            ? "cursor-not-allowed bg-gray-50/60"
+                            : "cursor-pointer hover:bg-gray-50"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={disabled}
+                          onChange={() =>
+                            handleTogglePermission(permission.code)
+                          }
+                          className="mt-1 scale-125 cursor-pointer disabled:cursor-not-allowed"
+                        />
+
+                        <div className="flex-1">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <p className="font-medium text-gray-800">
+                              {permission.label}
+                            </p>
+
+                            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded w-fit">
+                              {permission.code}
+                            </span>
+                          </div>
+
+                          <p className="text-sm text-gray-500 mt-1">
+                            {permission.description}
                           </p>
-                        )}
-                      </td>
 
-                      {roleOrder.map((roleCode) => {
-                        const checked = hasPermission(
-                          roleCode,
-                          permission.code,
-                        );
-
-                        const disabled = !canTogglePermission(
-                          roleCode,
-                          permission.code,
-                        );
-
-                        return (
-                          <td key={roleCode} className="px-5 py-4 text-center">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={disabled}
-                              onChange={() =>
-                                handleTogglePermission(
-                                  roleCode,
-                                  permission.code,
-                                )
-                              }
-                              className={`scale-125 ${
-                                disabled
-                                  ? "cursor-not-allowed"
-                                  : "cursor-pointer"
-                              }`}
-                            />
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+                          {permission.code ===
+                            PERMISSIONS.MANAGE_PERMISSION && (
+                            <p className="text-xs text-orange-500 mt-2">
+                              Quyền này chỉ dành cho Super Admin
+                            </p>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
