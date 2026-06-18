@@ -1,6 +1,7 @@
 import { ADMIN_ROLE_CODES, DEFAULT_ROLES, ROLE_CODES } from "../constants/rbac";
 
 const ROLE_PERMISSION_STORAGE_KEY = "rolePermissions";
+const CUSTOM_ROLES_STORAGE_KEY = "customRoles";
 
 export const normalizeRoleCode = (roleCode) => {
   if (!roleCode) return "";
@@ -34,6 +35,16 @@ export const normalizeRoleCode = (roleCode) => {
   return role;
 };
 
+export const makeRoleCode = (value) => {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+};
+
 export const getStoredRolePermissions = () => {
   try {
     const data = JSON.parse(localStorage.getItem(ROLE_PERMISSION_STORAGE_KEY));
@@ -57,10 +68,112 @@ export const resetRolePermissions = () => {
   window.dispatchEvent(new Event("rolePermissionsUpdated"));
 };
 
-export const getRolePermissions = (roleCode) => {
+export const getStoredCustomRoles = () => {
+  try {
+    const data = JSON.parse(localStorage.getItem(CUSTOM_ROLES_STORAGE_KEY));
+    return data || {};
+  } catch (error) {
+    return {};
+  }
+};
+
+export const saveCustomRoles = (customRoles) => {
+  localStorage.setItem(CUSTOM_ROLES_STORAGE_KEY, JSON.stringify(customRoles));
+  window.dispatchEvent(new Event("customRolesUpdated"));
+};
+
+export const getAllRoles = () => {
+  return {
+    ...DEFAULT_ROLES,
+    ...getStoredCustomRoles(),
+  };
+};
+
+export const createCustomRole = ({ label, code, description }) => {
+  const roleLabel = String(label || "").trim();
+  const roleCode = makeRoleCode(code || label);
+
+  if (!roleLabel) {
+    return {
+      success: false,
+      message: "Vui lòng nhập tên role.",
+    };
+  }
+
+  if (!roleCode) {
+    return {
+      success: false,
+      message: "Mã role không hợp lệ.",
+    };
+  }
+
+  const allRoles = getAllRoles();
+
+  if (allRoles[roleCode]) {
+    return {
+      success: false,
+      message: "Role này đã tồn tại.",
+    };
+  }
+
+  const newRole = {
+    code: roleCode,
+    label: roleLabel,
+    description:
+      String(description || "").trim() || "Role được tạo bởi Super Admin.",
+    permissions: [],
+    isCustom: true,
+  };
+
+  const customRoles = getStoredCustomRoles();
+
+  saveCustomRoles({
+    ...customRoles,
+    [roleCode]: newRole,
+  });
+
+  const rolePermissions = getStoredRolePermissions();
+
+  saveRolePermissions({
+    ...rolePermissions,
+    [roleCode]: [],
+  });
+
+  return {
+    success: true,
+    role: newRole,
+  };
+};
+
+export const deleteCustomRole = (roleCode) => {
   const normalizedRole = normalizeRoleCode(roleCode);
 
-  if (!DEFAULT_ROLES[normalizedRole]) {
+  const customRoles = getStoredCustomRoles();
+
+  if (!customRoles[normalizedRole]) {
+    return {
+      success: false,
+      message: "Chỉ có thể xóa role được tạo thêm.",
+    };
+  }
+
+  delete customRoles[normalizedRole];
+  saveCustomRoles(customRoles);
+
+  const rolePermissions = getStoredRolePermissions();
+  delete rolePermissions[normalizedRole];
+  saveRolePermissions(rolePermissions);
+
+  return {
+    success: true,
+  };
+};
+
+export const getRolePermissions = (roleCode) => {
+  const normalizedRole = normalizeRoleCode(roleCode);
+  const allRoles = getAllRoles();
+
+  if (!allRoles[normalizedRole]) {
     return [];
   }
 
@@ -74,17 +187,18 @@ export const getRolePermissions = (roleCode) => {
     return storedPermissions[normalizedRole];
   }
 
-  return DEFAULT_ROLES[normalizedRole].permissions;
+  return allRoles[normalizedRole].permissions || [];
 };
 
 export const getRoleByCode = (roleCode) => {
   const normalizedRole = normalizeRoleCode(roleCode);
-  const defaultRole = DEFAULT_ROLES[normalizedRole];
+  const allRoles = getAllRoles();
+  const role = allRoles[normalizedRole];
 
-  if (!defaultRole) return null;
+  if (!role) return null;
 
   return {
-    ...defaultRole,
+    ...role,
     permissions: getRolePermissions(normalizedRole),
   };
 };
@@ -124,12 +238,27 @@ export const isAdminRole = (user) => {
   if (!user || !user.role) return false;
 
   const normalizedRole = normalizeRoleCode(user.role);
+  const customRoles = getStoredCustomRoles();
 
-  return ADMIN_ROLE_CODES.includes(normalizedRole);
+  return (
+    ADMIN_ROLE_CODES.includes(normalizedRole) ||
+    Boolean(customRoles[normalizedRole])
+  );
 };
 
 export const isSuperAdmin = (user) => {
   if (!user || !user.role) return false;
 
   return normalizeRoleCode(user.role) === ROLE_CODES.SUPER_ADMIN;
+};
+
+export const getRoleOptionsForAdminAccounts = () => {
+  const allRoles = getAllRoles();
+
+  return Object.values(allRoles)
+    .filter((role) => role.code !== ROLE_CODES.SUPER_ADMIN)
+    .map((role) => ({
+      code: role.code,
+      label: role.label,
+    }));
 };
