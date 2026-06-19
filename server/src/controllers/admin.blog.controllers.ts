@@ -36,6 +36,7 @@ export const addBlogController = async (req: Request<ParamsDictionary, any, Crea
   // Nếu có file ảnh upload, upload lên Cloudinary
   if (req.file) {
     const imageUrl = await uploadToCloudinary(req.file.buffer)
+    console.log("✅ Uploaded image successfully to Cloudinary:", imageUrl)
     payload.image = imageUrl
   }
 

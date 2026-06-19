@@ -51,3 +51,14 @@ export const updateRolePermissionsController = async (
     result: role
   })
 }
+
+export const deleteRoleController = async (req: Request<ParamsDictionary>, res: Response) => {
+  const { id } = req.params as { id: string }
+
+  const role = await adminRoleService.deleteRole(id)
+
+  return res.status(HTTP_STATUS.OK).json({
+    message: ADMIN_ROLE_MESSAGES.DELETE_ROLE_SUCCESS,
+    result: role
+  })
+}

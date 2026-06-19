@@ -39,7 +39,8 @@ import {
   getAllPermissionsController,
   getAllRolesController,
   createRoleController,
-  updateRolePermissionsController
+  updateRolePermissionsController,
+  deleteRoleController
 } from '~/controllers/admin.role.controllers'
 
 const adminRouter = express.Router()
@@ -120,5 +121,6 @@ adminRouter.patch(
   requirePermission('MANAGE_ADMIN'),
   wrapRequestHandler(updateRolePermissionsController)
 )
+adminRouter.delete('/roles/:id', requirePermission('MANAGE_ADMIN'), wrapRequestHandler(deleteRoleController))
 
 export default adminRouter
