@@ -70,6 +70,7 @@ export const ADMIN_BLOG_MESSAGES = {
   GET_ALL_BLOGS_SUCCESS: 'Get all blogs successfully',
   CREATE_BLOG_SUCCESS: 'Create blog successfully',
   UPDATE_BLOG_SUCCESS: 'Update blog successfully',
+  DELETE_BLOG_SUCCESS: 'Delete blog successfully',
   TOGGLE_PUBLISH_SUCCESS: 'Toggle blog publish status successfully',
   PROMPT_REQUIRED: 'Prompt is required for AI generation',
   GENERATE_CONTENT_SUCCESS: 'Generate content successfully',
@@ -123,9 +124,12 @@ export const ADMIN_ROLE_MESSAGES = {
   GET_ALL_ROLES_SUCCESS: 'Get all roles successfully',
   CREATE_ROLE_SUCCESS: 'Create role successfully',
   UPDATE_ROLE_PERMISSIONS_SUCCESS: 'Update role permissions successfully',
+  DELETE_ROLE_SUCCESS: 'Delete role successfully',
   ROLE_NOT_FOUND: 'Role not found',
   ROLE_NAME_ALREADY_EXISTS: 'Role name already exists',
-  ROLE_NAME_REQUIRED: 'Role name is required'
+  ROLE_NAME_REQUIRED: 'Role name is required',
+  CANNOT_DELETE_DEFAULT_ROLE: 'Cannot delete default system role',
+  ROLE_IN_USE: 'Cannot delete role that is assigned to users'
 }
 
 export const ADMIN_DASHBOARD_MESSAGES = {

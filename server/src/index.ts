@@ -1,6 +1,5 @@
 import express from 'express'
 import cors from 'cors'
-import path from 'path'
 import authRouter from './routes/auth.routes'
 import userRouter from './routes/user.routes'
 import blogRouter from './routes/blog.routes'
@@ -22,7 +21,6 @@ app.use('/api/users', userRouter)
 app.use('/api/blogs', blogRouter)
 app.use('/api/admin', adminRouter)
 
-app.use('/uploads', express.static(path.resolve('uploads')))
 app.use(defaultErrorHandler) // Middleware xử lý lỗi mặc định
 app.listen(PORT, async () => {
   console.log(`Server is running on port ${PORT}`)

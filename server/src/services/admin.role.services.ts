@@ -63,6 +63,39 @@ class AdminRoleService {
 
     return updatedRole
   }
+
+  async deleteRole(id: string) {
+    // 1. Kiểm tra role có tồn tại không
+    const role = await databaseService.roles.findOne({ _id: new ObjectId(id) })
+    if (!role) {
+      throw new errorWithStatus({
+        message: ADMIN_ROLE_MESSAGES.ROLE_NOT_FOUND,
+        status: HTTP_STATUS.NOT_FOUND
+      })
+    }
+
+    //  Không cho phép xóa role mặc định của hệ thống (USER, SUPER_ADMIN)
+    const protectedRoles = ['USER', 'SUPER_ADMIN']
+    if (protectedRoles.includes(role.name.toUpperCase())) {
+      throw new errorWithStatus({
+        message: ADMIN_ROLE_MESSAGES.CANNOT_DELETE_DEFAULT_ROLE,
+        status: HTTP_STATUS.FORBIDDEN
+      })
+    }
+
+    //  Kiểm tra xem có user nào đang dùng role này không
+    const usersWithRole = await databaseService.users.countDocuments({ role_id: new ObjectId(id) })
+    if (usersWithRole > 0) {
+      throw new errorWithStatus({
+        message: ADMIN_ROLE_MESSAGES.ROLE_IN_USE,
+        status: HTTP_STATUS.CONFLICT
+      })
+    }
+
+    //  Xóa role
+    await databaseService.roles.deleteOne({ _id: new ObjectId(id) })
+    return role
+  }
 }
 
 const adminRoleService = new AdminRoleService()

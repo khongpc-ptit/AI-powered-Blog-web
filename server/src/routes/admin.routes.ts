@@ -8,7 +8,9 @@ import {
   addBlogController,
   updateBlogController,
   togglePublishController,
-  generateContentController
+  generateContentController,
+  getBlogByIdController,
+  deleteBlogByIdController
 } from '~/controllers/admin.blog.controllers'
 import { getDashboardStatsController } from '~/controllers/admin.dashboard.controllers'
 import {
@@ -37,7 +39,8 @@ import {
   getAllPermissionsController,
   getAllRolesController,
   createRoleController,
-  updateRolePermissionsController
+  updateRolePermissionsController,
+  deleteRoleController
 } from '~/controllers/admin.role.controllers'
 
 const adminRouter = express.Router()
@@ -49,6 +52,7 @@ adminRouter.get('/dashboard', requirePermission('VIEW_DASHBOARD'), wrapRequestHa
 
 // Quản lý Bài viết (Blogs)
 adminRouter.get('/blogs', requirePermission('VIEW_POST'), wrapRequestHandler(getAllBlogsAdminController))
+adminRouter.get('/blogs/:id', requirePermission('VIEW_POST'), wrapRequestHandler(getBlogByIdController))
 adminRouter.post(
   '/blogs',
   requirePermission('CREATE_POST'),
@@ -62,6 +66,7 @@ adminRouter.patch(
   wrapRequestHandler(updateBlogController)
 )
 adminRouter.patch('/blogs/:id/status', requirePermission('UPDATE_POST'), wrapRequestHandler(togglePublishController))
+adminRouter.delete('/blogs/:id', requirePermission('DELETE_POST'), wrapRequestHandler(deleteBlogByIdController))
 adminRouter.post('/blogs/generate', requirePermission('CREATE_POST'), wrapRequestHandler(generateContentController))
 
 // Quản lý Danh mục (Categories)
@@ -116,5 +121,6 @@ adminRouter.patch(
   requirePermission('MANAGE_ADMIN'),
   wrapRequestHandler(updateRolePermissionsController)
 )
+adminRouter.delete('/roles/:id', requirePermission('MANAGE_ADMIN'), wrapRequestHandler(deleteRoleController))
 
 export default adminRouter

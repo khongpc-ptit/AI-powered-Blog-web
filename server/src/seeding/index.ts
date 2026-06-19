@@ -1,7 +1,0 @@
-export { seedRoles } from './01.seedRoles'
-export { seedUsers } from './02.seedUsers'
-export { seedCategories } from './03.seedCategories'
-export { seedRefreshTokens } from './04.seedRefreshTokens'
-export { seedBlogs } from './05.seedBlogs'
-export { seedComments } from './06.seedComments'
-export { default as runSeeding } from './runSeeding'

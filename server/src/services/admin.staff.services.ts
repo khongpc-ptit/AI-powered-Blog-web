@@ -45,7 +45,7 @@ class AdminStaffService {
               role_name: { $arrayElemAt: ['$role_info.name', 0] }
             }
           },
-          { $project: { password: 0, role_info: 0 } },
+          { $project: { password: 0, role_info: 0 ,role_id: 0 } },
           { $sort: { created_at: -1 as const } },
           { $skip: skip },
           { $limit: limit }
