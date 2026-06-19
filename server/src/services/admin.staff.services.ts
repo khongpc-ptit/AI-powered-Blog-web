@@ -8,18 +8,10 @@ import { passwordHash } from '~/utils/bcrypt'
 import User from '~/models/schemas/User.schema'
 
 class AdminStaffService {
-  async getAllAdmins({
-    page = 1,
-    limit = 10,
-    search = ''
-  }: {
-    page?: number
-    limit?: number
-    search?: string
-  }) {
+  async getAllAdmins({ page = 1, limit = 10, search = '' }: { page?: number; limit?: number; search?: string }) {
     // Tìm Role 'USER' mặc định
     const defaultRole = await databaseService.roles.findOne({ name: 'USER' })
-    
+
     const matchCondition: any = {}
 
     // Lọc ra các user KHÔNG PHẢI là 'USER' thường (tức là staff/admin)
@@ -31,10 +23,7 @@ class AdminStaffService {
     }
 
     if (search) {
-      matchCondition.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } }
-      ]
+      matchCondition.$or = [{ name: { $regex: search, $options: 'i' } }, { email: { $regex: search, $options: 'i' } }]
     }
 
     const skip = (page - 1) * limit
@@ -122,7 +111,7 @@ class AdminStaffService {
         status: HTTP_STATUS.NOT_FOUND
       })
     }
-    
+
     // Ngắt toàn bộ phiên đăng nhập cũ (xóa refresh token)
     await databaseService.refreshTokens.deleteMany({ user_id: new ObjectId(id) })
 
@@ -130,10 +119,7 @@ class AdminStaffService {
   }
 
   async deleteAdminAccount(id: string) {
-    const user = await databaseService.users.findOne(
-      { _id: new ObjectId(id) },
-      { projection: { password: 0 } }
-    )
+    const user = await databaseService.users.findOne({ _id: new ObjectId(id) }, { projection: { password: 0 } })
 
     if (!user) {
       throw new errorWithStatus({

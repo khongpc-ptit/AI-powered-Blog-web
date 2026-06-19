@@ -258,6 +258,7 @@ const Permissions = () => {
       setSelectedPermissions([]);
       return;
     }
+  };
 
     setSelectedPermissions(selectedRole.permissions || []);
   }, [selectedRole]);
