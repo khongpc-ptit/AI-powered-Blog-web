@@ -248,9 +248,6 @@ const Categories = () => {
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800">Categories</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Manage blog categories with add, edit, and delete options.
-          </p>
         </div>
 
         <button
