@@ -12,6 +12,7 @@ import generateBlogContentAI from '~/utils/ai.utils'
 import { ADMIN_BLOG_MESSAGES } from '~/constants/messages'
 import { error } from 'node:console'
 import { errorWithStatus } from '~/models/Error'
+import { uploadToCloudinary } from '~/utils/cloudinary'
 
 export const getAllBlogsAdminController = async (
   req: Request<ParamsDictionary, any, any, GetAllBlogsReqQuery>,
@@ -32,10 +33,10 @@ export const getAllBlogsAdminController = async (
 
 export const addBlogController = async (req: Request<ParamsDictionary, any, CreateBlogReqBody>, res: Response) => {
   const payload = req.body
-  // Nếu có file ảnh upload, file path sẽ lưu vào req.file
+  // Nếu có file ảnh upload, upload lên Cloudinary
   if (req.file) {
-    // Lưu tạm theo cấu trúc local của express
-    payload.image = `/uploads/${req.file.filename}`
+    const imageUrl = await uploadToCloudinary(req.file.buffer)
+    payload.image = imageUrl
   }
 
   const blog = await adminBlogService.addBlog(payload)
@@ -51,7 +52,8 @@ export const updateBlogController = async (req: Request<ParamsDictionary, any, U
   const payload = req.body
 
   if (req.file) {
-    payload.image = `/uploads/${req.file.filename}`
+    const imageUrl = await uploadToCloudinary(req.file.buffer)
+    payload.image = imageUrl
   }
 
   const blog = await adminBlogService.updateBlog(id, payload)
