@@ -118,4 +118,20 @@ export const ADMIN_STAFF_MESSAGES = {
   ROLE_NOT_FOUND: 'Role not found'
 }
 
+export const ADMIN_ROLE_MESSAGES = {
+  GET_ALL_PERMISSIONS_SUCCESS: 'Get all permissions successfully',
+  GET_ALL_ROLES_SUCCESS: 'Get all roles successfully',
+  CREATE_ROLE_SUCCESS: 'Create role successfully',
+  UPDATE_ROLE_PERMISSIONS_SUCCESS: 'Update role permissions successfully',
+  ROLE_NOT_FOUND: 'Role not found',
+  ROLE_NAME_ALREADY_EXISTS: 'Role name already exists',
+  ROLE_NAME_REQUIRED: 'Role name is required'
+}
+
+export const ADMIN_DASHBOARD_MESSAGES = {
+  GET_DASHBOARD_STATS_SUCCESS: 'Get dashboard statistics successfully'
+}
+
+
+
 
