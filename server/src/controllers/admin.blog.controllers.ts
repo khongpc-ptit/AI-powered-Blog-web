@@ -8,9 +8,10 @@ import {
   GenerateBlogContentReqBody
 } from '~/models/requests/Blog.requests'
 import adminBlogService from '~/services/admin.blog.services'
-import { generateBlogContentAI } from '~/utils/ai.utils'
+import generateBlogContentAI from '~/utils/ai.utils'
 import { ADMIN_BLOG_MESSAGES } from '~/constants/messages'
-
+import { error } from 'node:console'
+import { errorWithStatus } from '~/models/Error'
 
 export const getAllBlogsAdminController = async (
   req: Request<ParamsDictionary, any, any, GetAllBlogsReqQuery>,
@@ -21,7 +22,7 @@ export const getAllBlogsAdminController = async (
   const search = req.query.search as string
 
   const result = await adminBlogService.getAllBlogsAdmin({ page, limit, search })
-  
+
   return res.status(HTTP_STATUS.OK).json({
     message: ADMIN_BLOG_MESSAGES.GET_ALL_BLOGS_SUCCESS,
     result: result.blogs,
@@ -29,10 +30,7 @@ export const getAllBlogsAdminController = async (
   })
 }
 
-export const addBlogController = async (
-  req: Request<ParamsDictionary, any, CreateBlogReqBody>,
-  res: Response
-) => {
+export const addBlogController = async (req: Request<ParamsDictionary, any, CreateBlogReqBody>, res: Response) => {
   const payload = req.body
   // Nếu có file ảnh upload, file path sẽ lưu vào req.file
   if (req.file) {
@@ -48,10 +46,7 @@ export const addBlogController = async (
   })
 }
 
-export const updateBlogController = async (
-  req: Request<ParamsDictionary, any, UpdateBlogReqBody>,
-  res: Response
-) => {
+export const updateBlogController = async (req: Request<ParamsDictionary, any, UpdateBlogReqBody>, res: Response) => {
   const { id } = req.params as { id: string }
   const payload = req.body
 
@@ -89,11 +84,18 @@ export const generateContentController = async (
       message: ADMIN_BLOG_MESSAGES.PROMPT_REQUIRED
     })
   }
-
-  const generatedContent = await generateBlogContentAI(prompt)
-
-  return res.status(HTTP_STATUS.OK).json({
-    message: ADMIN_BLOG_MESSAGES.GENERATE_CONTENT_SUCCESS,
-    result: generatedContent
-  })
+  try {
+    const generatedContent = await generateBlogContentAI(
+      prompt + 'Hãy viết một blog post siêu ngắn 150 từ về chủ đề này với format nội dung như một bài blog thông thường'
+    )
+    return res.status(HTTP_STATUS.OK).json({
+      message: ADMIN_BLOG_MESSAGES.GENERATE_CONTENT_SUCCESS,
+      result: generatedContent
+    })
+  } catch {
+    throw new errorWithStatus({
+      message: 'Generate fail',
+      status: HTTP_STATUS.INTERNAL_SERVER_ERROR
+    })
+  }
 }
