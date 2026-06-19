@@ -4,6 +4,7 @@ import Blog from '~/models/schemas/Blog.schema'
 import { errorWithStatus } from '~/models/Error'
 import HTTP_STATUS from '~/constants/httpStatus'
 import { ADMIN_BLOG_MESSAGES } from '~/constants/messages'
+import { CreateBlogReqBody, UpdateBlogReqBody } from '~/models/requests/Blog.requests'
 
 
 class AdminBlogService {
@@ -49,13 +50,13 @@ class AdminBlogService {
     }
   }
 
-  async addBlog(payload: any) {
+  async addBlog(payload: CreateBlogReqBody) {
     const newBlog = new Blog({
       title: payload.title,
       subtitle: payload.subtitle,
       description: payload.description,
       category_id: new ObjectId(payload.category_id),
-      image: payload.image,
+      image: payload.image || '',
       isPublished: payload.isPublished === 'true' || payload.isPublished === true
     })
 
@@ -64,7 +65,7 @@ class AdminBlogService {
     return newBlog
   }
 
-  async updateBlog(id: string, payload: any) {
+  async updateBlog(id: string, payload: UpdateBlogReqBody) {
     const updateData: any = {}
     if (payload.title) updateData.title = payload.title
     if (payload.subtitle) updateData.subtitle = payload.subtitle

@@ -3,8 +3,8 @@ import userService from '~/services/user.services'
 // Giả định bạn có định nghĩa USER_MESSAGES
 import { USER_MESSAGES } from '~/constants/messages'
 import { ParamsDictionary } from 'express-serve-static-core'
-import { TokenPayload } from '~/models/requests/UserReqRegister'
-import { UpdateProfileReqBody, ChangePasswordReqBody } from '~/models/requests/UserReqRegister'
+import { TokenPayload } from '~/models/requests/UserRegister.requests'
+import { UpdateProfileReqBody, ChangePasswordReqBody } from '~/models/requests/UserRegister.requests'
 
 export const getProfileController = async (req: Request, res: Response) => {
   const { user_id } = req.decoded_authorization as TokenPayload

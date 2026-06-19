@@ -81,3 +81,41 @@ export const PERMISSION_MESSAGES = {
   ROLE_NOT_FOUND: 'Access Denied: Role not found',
   INSUFFICIENT_PERMISSIONS: 'Access Denied: Insufficient permissions'
 }
+
+export const ADMIN_CATEGORY_MESSAGES = {
+  GET_ALL_CATEGORIES_SUCCESS: 'Get all categories successfully',
+  CREATE_CATEGORY_SUCCESS: 'Create category successfully',
+  UPDATE_CATEGORY_SUCCESS: 'Update category successfully',
+  DELETE_CATEGORY_SUCCESS: 'Delete category successfully',
+  CATEGORY_NOT_FOUND: 'Category not found',
+  CATEGORY_NAME_REQUIRED: 'Category name is required',
+  CATEGORY_NAME_ALREADY_EXISTS: 'Category name already exists'
+}
+
+export const ADMIN_COMMENT_MESSAGES = {
+  GET_ALL_COMMENTS_SUCCESS: 'Get all comments successfully',
+  APPROVE_COMMENT_SUCCESS: 'Approve comment successfully',
+  DELETE_COMMENT_SUCCESS: 'Delete comment successfully',
+  COMMENT_NOT_FOUND: 'Comment not found'
+}
+
+export const ADMIN_USER_MESSAGES = {
+  GET_ALL_USERS_SUCCESS: 'Get all users successfully',
+  UPDATE_USER_SUCCESS: 'Update user successfully',
+  DELETE_USER_SUCCESS: 'Delete user successfully',
+  USER_NOT_FOUND: 'User not found',
+  EMAIL_ALREADY_EXISTS: 'Email already exists',
+  ROLE_NOT_FOUND: 'Role not found'
+}
+
+export const ADMIN_STAFF_MESSAGES = {
+  GET_ALL_ADMINS_SUCCESS: 'Get all admins/staff successfully',
+  CREATE_ADMIN_SUCCESS: 'Create admin account successfully',
+  RESET_PASSWORD_SUCCESS: 'Reset admin password successfully',
+  DELETE_ADMIN_SUCCESS: 'Delete admin account successfully',
+  STAFF_NOT_FOUND: 'Staff or admin not found',
+  EMAIL_ALREADY_EXISTS: 'Email already exists',
+  ROLE_NOT_FOUND: 'Role not found'
+}
+
+

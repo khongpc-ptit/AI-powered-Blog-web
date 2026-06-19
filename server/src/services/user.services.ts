@@ -3,7 +3,7 @@ import databaseService from '~/services/database.services'
 import { errorWithStatus } from '~/models/Error'
 import HTTP_STATUS from '~/constants/httpStatus'
 import { USER_MESSAGES } from '~/constants/messages'
-import { UpdateProfileReqBody } from '~/models/requests/UserReqRegister'
+import { UpdateProfileReqBody } from '~/models/requests/UserRegister.requests'
 import { comparePassword, passwordHash } from '~/utils/bcrypt'
 
 class UserService {

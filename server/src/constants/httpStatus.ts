@@ -8,6 +8,7 @@ export const HTTP_STATUS = {
   NOT_FOUND: 404,
   FORBIDDEN: 403,
   INTERNAL_SERVER_ERROR: 500,
-  BAD_REQUEST: 400
+  BAD_REQUEST: 400,
+  CONFLICT: 409
 } as const
 export default HTTP_STATUS
