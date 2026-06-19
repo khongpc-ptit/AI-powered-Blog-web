@@ -18,7 +18,12 @@ import {
 
 const Permissions = () => {
   const currentUser = getCurrentUser();
-  const canEdit = isSuperAdmin(currentUser);
+
+  // Nếu hiện tại frontend đang lưu Super Admin chưa chuẩn role,
+  // dùng thêm isAdmin để vẫn cho thao tác trên giao diện.
+  // Quyền thật vẫn để backend check.
+  const canEdit =
+    isSuperAdmin(currentUser) || localStorage.getItem("isAdmin") === "true";
 
   const [rolesMap, setRolesMap] = useState(() => getAllRoles());
 
@@ -29,7 +34,7 @@ const Permissions = () => {
   );
 
   const [selectedRoleCode, setSelectedRoleCode] = useState(
-    firstEditableRole?.code || ROLE_CODES.ADMIN,
+    firstEditableRole?.code || ROLE_CODES.SUPER_ADMIN,
   );
 
   const [rolePermissions, setRolePermissions] = useState(() => {
@@ -51,8 +56,14 @@ const Permissions = () => {
   const [newRoleCode, setNewRoleCode] = useState("");
   const [newRoleDescription, setNewRoleDescription] = useState("");
 
-  const selectedRole = rolesMap[selectedRoleCode];
-  const selectedRolePermissions = rolePermissions[selectedRoleCode] || [];
+  const selectedRole =
+    rolesMap[selectedRoleCode] || DEFAULT_ROLES[ROLE_CODES.SUPER_ADMIN];
+
+  const selectedRolePermissions =
+    rolePermissions[selectedRoleCode] ||
+    getRolePermissions(selectedRole?.code) ||
+    [];
+
   const roleCodePreview = makeRoleCode(newRoleCode || newRoleName);
 
   const hasPermission = (permissionCode) => {
@@ -106,6 +117,7 @@ const Permissions = () => {
 
     if (!canEdit) {
       setError("Chỉ Super Admin mới được tạo role mới.");
+      setMessage("");
       return;
     }
 
@@ -175,7 +187,7 @@ const Permissions = () => {
     const nextRole =
       Object.values(updatedRoles).find(
         (item) => item.code !== ROLE_CODES.SUPER_ADMIN,
-      ) || DEFAULT_ROLES[ROLE_CODES.ADMIN];
+      ) || DEFAULT_ROLES[ROLE_CODES.SUPER_ADMIN];
 
     setSelectedRoleCode(nextRole.code);
 
@@ -201,7 +213,11 @@ const Permissions = () => {
   };
 
   const countPermissionsByRole = (roleCode) => {
-    return rolePermissions[roleCode]?.length || 0;
+    return (
+      rolePermissions[roleCode]?.length ||
+      getRolePermissions(roleCode).length ||
+      0
+    );
   };
 
   return (
@@ -261,7 +277,6 @@ const Permissions = () => {
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-6">
-        {/* Role list */}
         <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden h-fit">
           <div className="px-5 py-4 border-b border-gray-100">
             <h2 className="font-semibold text-gray-800">Role List</h2>
@@ -336,7 +351,6 @@ const Permissions = () => {
           </div>
         </div>
 
-        {/* Permission checklist */}
         <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
             <div>
@@ -456,7 +470,7 @@ const Permissions = () => {
                   type="text"
                   value={newRoleName}
                   onChange={(e) => setNewRoleName(e.target.value)}
-                  placeholder="VD: Content X"
+                  placeholder="VD: Editor"
                   autoFocus
                   className="w-full mt-1 px-3 py-2 border border-gray-300 rounded outline-none focus:border-primary"
                 />
@@ -471,7 +485,7 @@ const Permissions = () => {
                   type="text"
                   value={newRoleCode}
                   onChange={(e) => setNewRoleCode(e.target.value)}
-                  placeholder="VD: content_x"
+                  placeholder="VD: editor"
                   className="w-full mt-1 px-3 py-2 border border-gray-300 rounded outline-none focus:border-primary"
                 />
 

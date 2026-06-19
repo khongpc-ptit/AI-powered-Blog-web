@@ -11,25 +11,10 @@ export const normalizeRoleCode = (roleCode) => {
   if (
     role === "superadmin" ||
     role === "super_admin" ||
-    role === "super-admin"
+    role === "super-admin" ||
+    role === "super admin"
   ) {
     return ROLE_CODES.SUPER_ADMIN;
-  }
-
-  if (role === "admin") {
-    return ROLE_CODES.ADMIN;
-  }
-
-  if (
-    role === "contentmanager" ||
-    role === "content_manager" ||
-    role === "content-manager"
-  ) {
-    return ROLE_CODES.CONTENT_MANAGER;
-  }
-
-  if (role === "blogger") {
-    return ROLE_CODES.BLOGGER;
   }
 
   return role;
@@ -49,7 +34,7 @@ export const getStoredRolePermissions = () => {
   try {
     const data = JSON.parse(localStorage.getItem(ROLE_PERMISSION_STORAGE_KEY));
     return data || {};
-  } catch (error) {
+  } catch {
     return {};
   }
 };
@@ -72,7 +57,7 @@ export const getStoredCustomRoles = () => {
   try {
     const data = JSON.parse(localStorage.getItem(CUSTOM_ROLES_STORAGE_KEY));
     return data || {};
-  } catch (error) {
+  } catch {
     return {};
   }
 };
@@ -104,6 +89,13 @@ export const createCustomRole = ({ label, code, description }) => {
     return {
       success: false,
       message: "Mã role không hợp lệ.",
+    };
+  }
+
+  if (roleCode === ROLE_CODES.SUPER_ADMIN) {
+    return {
+      success: false,
+      message: "Không thể tạo role trùng với Super Admin.",
     };
   }
 
@@ -213,7 +205,7 @@ export const getCurrentUser = () => {
       ...currentUser,
       role: normalizeRoleCode(currentUser.role || currentUser.role_id),
     };
-  } catch (error) {
+  } catch {
     return null;
   }
 };

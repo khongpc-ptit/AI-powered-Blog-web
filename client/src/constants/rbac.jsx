@@ -1,8 +1,5 @@
 export const ROLE_CODES = {
   SUPER_ADMIN: "super_admin",
-  ADMIN: "admin",
-  CONTENT_MANAGER: "content_manager",
-  BLOGGER: "blogger",
 };
 
 export const PERMISSIONS = {
@@ -113,75 +110,13 @@ export const DEFAULT_ROLES = {
     label: "Super Admin",
     description: "Quản trị viên cấp cao, có toàn quyền trong hệ thống.",
     permissions: Object.values(PERMISSIONS),
-  },
-
-  [ROLE_CODES.ADMIN]: {
-    code: ROLE_CODES.ADMIN,
-    label: "Admin",
-    description: "Quản trị viên thường.",
-    permissions: [
-      PERMISSIONS.CREATE_POST,
-      PERMISSIONS.UPDATE_POST,
-      PERMISSIONS.DELETE_POST,
-      PERMISSIONS.CHANGE_POST_STATUS,
-
-      PERMISSIONS.CREATE_CATEGORY,
-      PERMISSIONS.UPDATE_CATEGORY,
-      PERMISSIONS.DELETE_CATEGORY,
-
-      PERMISSIONS.DELETE_COMMENT,
-
-      PERMISSIONS.UPDATE_USER,
-      PERMISSIONS.DELETE_USER,
-    ],
-  },
-
-  [ROLE_CODES.CONTENT_MANAGER]: {
-    code: ROLE_CODES.CONTENT_MANAGER,
-    label: "Content Manager",
-    description: "Quản lý nội dung.",
-    permissions: [
-      PERMISSIONS.CREATE_POST,
-      PERMISSIONS.UPDATE_POST,
-      PERMISSIONS.DELETE_POST,
-      PERMISSIONS.CHANGE_POST_STATUS,
-
-      PERMISSIONS.CREATE_CATEGORY,
-      PERMISSIONS.UPDATE_CATEGORY,
-      PERMISSIONS.DELETE_CATEGORY,
-
-      PERMISSIONS.DELETE_COMMENT,
-    ],
-  },
-
-  [ROLE_CODES.BLOGGER]: {
-    code: ROLE_CODES.BLOGGER,
-    label: "Blogger",
-    description: "Người viết bài.",
-    permissions: [PERMISSIONS.CREATE_POST, PERMISSIONS.UPDATE_POST],
+    locked: true,
+    isDefault: true,
   },
 };
 
 export const ROLES = DEFAULT_ROLES;
 
-export const ADMIN_ROLE_CODES = [
-  ROLE_CODES.SUPER_ADMIN,
-  ROLE_CODES.ADMIN,
-  ROLE_CODES.CONTENT_MANAGER,
-  ROLE_CODES.BLOGGER,
-];
+export const ADMIN_ROLE_CODES = [ROLE_CODES.SUPER_ADMIN];
 
-export const ROLE_OPTIONS = [
-  {
-    code: ROLE_CODES.ADMIN,
-    label: "Admin",
-  },
-  {
-    code: ROLE_CODES.CONTENT_MANAGER,
-    label: "Content Manager",
-  },
-  {
-    code: ROLE_CODES.BLOGGER,
-    label: "Blogger",
-  },
-];
+export const ROLE_OPTIONS = [];
