@@ -1,4 +1,4 @@
-const API_BASE_URL = "/api";
+const API_BASE_URL = "http://localhost:3000/api";
 
 const getHeaders = () => {
   const accessToken = localStorage.getItem("accessToken");
@@ -15,22 +15,43 @@ const handleResponse = async (response) => {
     if (data.errors) {
       const fieldErrors = {};
       Object.keys(data.errors).forEach((field) => {
-        fieldErrors[field] = { msg: data.errors[field].msg || data.errors[field] };
+        fieldErrors[field] = {
+          msg: data.errors[field].msg || data.errors[field],
+        };
       });
-      throw { message: data.message || "Validation error", status: response.status, errors: fieldErrors };
+      throw {
+        message: data.message || "Validation error",
+        status: response.status,
+        errors: fieldErrors,
+      };
     }
-    throw { message: data.message || "An error occurred", status: response.status };
+    throw {
+      message: data.message || "An error occurred",
+      status: response.status,
+    };
   }
 
   return data;
 };
 
 export const authApi = {
-  register: async ({ name, email, password, confirm_password, date_of_birth }) => {
+  register: async ({
+    name,
+    email,
+    password,
+    confirm_password,
+    date_of_birth,
+  }) => {
     const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email, password, confirm_password, date_of_birth }),
+      body: JSON.stringify({
+        name,
+        email,
+        password,
+        confirm_password,
+        date_of_birth,
+      }),
     });
     return handleResponse(response);
   },
