@@ -19,7 +19,7 @@ const Sidebar = () => {
       path: "/admin",
       icon: assets.home_icon,
       end: true,
-      permissions: [],
+      permissions: [PERMISSIONS.VIEW_DASHBOARD],
     },
     {
       name: "Add Blogs",
@@ -32,6 +32,7 @@ const Sidebar = () => {
       path: "/admin/listBlog",
       icon: assets.list_icon,
       permissions: [
+        PERMISSIONS.VIEW_POST,
         PERMISSIONS.UPDATE_POST,
         PERMISSIONS.DELETE_POST,
         PERMISSIONS.CHANGE_POST_STATUS,
@@ -41,7 +42,11 @@ const Sidebar = () => {
       name: "Comments",
       path: "/admin/comments",
       icon: assets.comment_icon,
-      permissions: [PERMISSIONS.DELETE_COMMENT],
+      permissions: [
+        PERMISSIONS.VIEW_COMMENT,
+        PERMISSIONS.UPDATE_COMMENT,
+        PERMISSIONS.DELETE_COMMENT,
+      ],
     },
     {
       name: "Categories",

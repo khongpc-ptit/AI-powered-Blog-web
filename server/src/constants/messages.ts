@@ -70,6 +70,7 @@ export const ADMIN_BLOG_MESSAGES = {
   GET_ALL_BLOGS_SUCCESS: 'Get all blogs successfully',
   CREATE_BLOG_SUCCESS: 'Create blog successfully',
   UPDATE_BLOG_SUCCESS: 'Update blog successfully',
+  DELETE_BLOG_SUCCESS: 'Delete blog successfully',
   TOGGLE_PUBLISH_SUCCESS: 'Toggle blog publish status successfully',
   PROMPT_REQUIRED: 'Prompt is required for AI generation',
   GENERATE_CONTENT_SUCCESS: 'Generate content successfully',

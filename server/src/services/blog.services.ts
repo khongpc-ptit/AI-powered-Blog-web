@@ -215,7 +215,7 @@ class BlogService {
       user_id: user_id,
       name: name,
       content: content,
-      is_approved: true
+      is_approved: false
     })
     const result = await databaseService.comments.insertOne(newComment)
     newComment._id = result.insertedId

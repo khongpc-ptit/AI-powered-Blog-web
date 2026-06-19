@@ -280,7 +280,7 @@ const BlogList = () => {
       ) : blogs.length > 0 ? (
         <>
           {/* Blog Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mb-8 mx-8 sm:mx-16 xl:mx-40">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 mx-2 sm:mx-4 lg:mx-8">
             {blogs.map((blog) => (
               <BlogCard key={blog._id} blog={blog} />
             ))}
@@ -288,7 +288,7 @@ const BlogList = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex flex-wrap justify-center items-center gap-2 mb-24 px-4">
+            <div className="flex flex-wrap justify-center items-center gap-1 sm:gap-2 mb-16 px-2">
               <button
                 onClick={() => handlePageChange(1)}
                 disabled={currentPage === 1}
