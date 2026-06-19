@@ -1,92 +1,119 @@
-import React, { useState, useMemo } from "react";
-import { blogCategories, blog_data } from "../assets/assets";
-import { motion } from "motion/react";
+import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
+import { motion } from "framer-motion";
 import BlogCard from "./BlogCard";
+import Loader from "./Loader";
+import { blogApi } from "../services/blog.api";
 
 const BlogList = () => {
+  const [searchParams] = useSearchParams();
+  const [blogs, setBlogs] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [menu, setMenu] = useState("All");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortBy, setSortBy] = useState("newest");
-  const [dateFilter, setDateFilter] = useState("all");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
+  const [sortBy, setSortBy] = useState("created_at");
+  const [order, setOrder] = useState("desc");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(8);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const getDateRange = (filter) => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    switch (filter) {
-      case "today":
-        return { start: today, end: new Date(today.getTime() + 86400000) };
-      case "week":
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay());
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 7);
-        return { start: weekStart, end: weekEnd };
-      case "month":
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-        return { start: monthStart, end: monthEnd };
-      default:
-        return null;
+  // Sync search from URL on mount
+  useEffect(() => {
+    const urlSearch = searchParams.get("search");
+    if (urlSearch) {
+      setSearchQuery(urlSearch);
     }
+  }, [searchParams]);
+
+  // Fetch categories
+  const fetchCategories = useCallback(async () => {
+    try {
+      const data = await blogApi.getCategories();
+      setCategories(["All", ...data.result]);
+    } catch (err) {
+      console.error("Failed to fetch categories:", err);
+      setCategories(["All", "Technology", "Life Style", "Education"]);
+    }
+  }, []);
+
+  // Fetch blogs with filters and pagination
+  const fetchBlogs = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const category = menu === "All" ? "" : menu;
+      const sortField = sortBy === "newest" ? "created_at" : sortBy === "oldest" ? "created_at" : sortBy;
+      const sortOrder = sortBy === "oldest" ? "asc" : order;
+
+      const data = await blogApi.getBlogs({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchQuery,
+        category,
+        sort_by: sortField,
+        order: sortOrder,
+      });
+
+      setBlogs(data.result);
+      if (data.pagination) {
+        setTotalPages(data.pagination.total_pages || 1);
+      }
+    } catch (err) {
+      console.error("Failed to fetch blogs:", err);
+      setError(err.message || "Failed to load blogs");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentPage, itemsPerPage, searchQuery, menu, sortBy, order]);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  useEffect(() => {
+    fetchBlogs();
+  }, [fetchBlogs]);
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      } else {
+        fetchBlogs();
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const handleCategoryChange = (cat) => {
+    setMenu(cat);
+    setCurrentPage(1);
   };
 
-  const filteredAndSortedBlogs = useMemo(() => {
-    let result = [...blog_data];
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+  };
 
-    // Filter by category
-    if (menu !== "All") {
-      result = result.filter((blog) => blog.category === menu);
+  const handleSortChange = (e) => {
+    const value = e.target.value;
+    if (value === "newest") {
+      setSortBy("created_at");
+      setOrder("desc");
+    } else if (value === "oldest") {
+      setSortBy("created_at");
+      setOrder("asc");
+    } else if (value === "title-asc") {
+      setSortBy("title");
+      setOrder("asc");
+    } else if (value === "title-desc") {
+      setSortBy("title");
+      setOrder("desc");
     }
-
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (blog) =>
-          blog.title.toLowerCase().includes(query) ||
-          blog.description.toLowerCase().includes(query) ||
-          blog.category.toLowerCase().includes(query)
-      );
-    }
-
-    // Filter by date
-    if (dateFilter !== "all") {
-      const range = getDateRange(dateFilter);
-      if (range) {
-        result = result.filter((blog) => {
-          const blogDate = new Date(blog.createdAt);
-          return blogDate >= range.start && blogDate < range.end;
-        });
-      }
-    }
-
-    // Sort
-    result.sort((a, b) => {
-      switch (sortBy) {
-        case "newest":
-          return new Date(b.createdAt) - new Date(a.createdAt);
-        case "oldest":
-          return new Date(a.createdAt) - new Date(b.createdAt);
-        case "title-asc":
-          return a.title.localeCompare(b.title);
-        case "title-desc":
-          return b.title.localeCompare(a.title);
-        default:
-          return 0;
-      }
-    });
-
-    return result;
-  }, [menu, searchQuery, sortBy, dateFilter]);
-
-  // Reset to page 1 whenever filters change (handled in onChange handlers below)
-
-  const totalPages = Math.ceil(filteredAndSortedBlogs.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedBlogs = filteredAndSortedBlogs.slice(startIndex, startIndex + itemsPerPage);
+    setCurrentPage(1);
+  };
 
   const handlePageChange = (page) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -100,36 +127,19 @@ const BlogList = () => {
 
   const resetFilters = () => {
     setSearchQuery("");
-    setSortBy("newest");
-    setDateFilter("all");
+    setMenu("All");
+    setSortBy("created_at");
+    setOrder("desc");
     setCurrentPage(1);
   };
 
-  // Wrappers that also reset pagination to page 1
-  const handleCategoryChange = (cat) => {
-    setMenu(cat);
-    setCurrentPage(1);
-  };
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1);
-  };
-  const handleSortChange = (e) => {
-    setSortBy(e.target.value);
-    setCurrentPage(1);
-  };
-  const handleDateFilterChange = (e) => {
-    setDateFilter(e.target.value);
-    setCurrentPage(1);
-  };
-
-  const hasActiveFilters = searchQuery || dateFilter !== "all";
+  const hasActiveFilters = searchQuery || menu !== "All" || sortBy !== "created_at" || order !== "desc";
 
   return (
     <div>
       {/* Category Filter */}
       <div className="flex justify-center gap-4 sm:gap-8 my-10 relative">
-        {blogCategories.map((item) => (
+        {categories.map((item) => (
           <div key={item} className="relative">
             <button
               onClick={() => handleCategoryChange(item)}
@@ -179,7 +189,7 @@ const BlogList = () => {
 
           {/* Sort Dropdown */}
           <select
-            value={sortBy}
+            value={sortBy === "title" ? (order === "asc" ? "title-asc" : "title-desc") : (order === "asc" ? "oldest" : "newest")}
             onChange={handleSortChange}
             className="px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white"
           >
@@ -187,18 +197,6 @@ const BlogList = () => {
             <option value="oldest">Oldest First</option>
             <option value="title-asc">Title (A-Z)</option>
             <option value="title-desc">Title (Z-A)</option>
-          </select>
-
-          {/* Date Filter */}
-          <select
-            value={dateFilter}
-            onChange={handleDateFilterChange}
-            className="px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white"
-          >
-            <option value="all">All Time</option>
-            <option value="today">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
           </select>
 
           {/* Reset Button */}
@@ -214,19 +212,112 @@ const BlogList = () => {
 
         {/* Results Count */}
         <div className="mt-4 text-sm text-gray-600">
-          Showing {filteredAndSortedBlogs.length} blog{filteredAndSortedBlogs.length !== 1 ? "s" : ""}
+          Showing {blogs.length} blog{blogs.length !== 1 ? "s" : ""}
           {menu !== "All" && ` in ${menu}`}
           {hasActiveFilters && " (filtered)"}
         </div>
       </div>
 
-      {/* Blog Grid */}
-      {filteredAndSortedBlogs.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mb-8 mx-8 sm:mx-16 xl:mx-40">
-          {paginatedBlogs.map((blog) => (
-            <BlogCard key={blog._id} blog={blog} />
-          ))}
+      {/* Loading State */}
+      {loading ? (
+        <div className="flex justify-center items-center py-20">
+          <Loader />
         </div>
+      ) : error ? (
+        <div className="text-center py-16">
+          <p className="text-red-500 text-lg mb-4">{error}</p>
+          <button
+            onClick={fetchBlogs}
+            className="px-6 py-2 bg-primary text-white rounded-full hover:bg-primary/90 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      ) : blogs.length > 0 ? (
+        <>
+          {/* Blog Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mb-8 mx-8 sm:mx-16 xl:mx-40">
+            {blogs.map((blog) => (
+              <BlogCard key={blog._id} blog={blog} />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex flex-wrap justify-center items-center gap-2 mb-24 px-4">
+              <button
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+              >
+                « First
+              </button>
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+              >
+                ‹ Prev
+              </button>
+
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum)}
+                    className={`px-3 py-1.5 text-sm border rounded ${
+                      currentPage === pageNum
+                        ? "bg-primary text-white border-primary"
+                        : "border-gray-300 hover:bg-gray-100 bg-white"
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+              >
+                Next ›
+              </button>
+              <button
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
+              >
+                Last »
+              </button>
+
+              <div className="flex items-center gap-2 ml-4">
+                <span className="text-sm text-gray-600">Per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
+                  className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white"
+                >
+                  {[4, 8, 12, 16, 20].map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <div className="text-center py-16">
           <p className="text-gray-500 text-lg">No blogs found matching your criteria.</p>
@@ -236,82 +327,6 @@ const BlogList = () => {
           >
             Clear Filters
           </button>
-        </div>
-      )}
-
-      {/* Pagination */}
-      {filteredAndSortedBlogs.length > 0 && totalPages > 1 && (
-        <div className="flex flex-wrap justify-center items-center gap-2 mb-24 px-4">
-          <button
-            onClick={() => handlePageChange(1)}
-            disabled={currentPage === 1}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
-          >
-            « First
-          </button>
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
-          >
-            ‹ Prev
-          </button>
-
-          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-            let pageNum;
-            if (totalPages <= 5) {
-              pageNum = i + 1;
-            } else if (currentPage <= 3) {
-              pageNum = i + 1;
-            } else if (currentPage >= totalPages - 2) {
-              pageNum = totalPages - 4 + i;
-            } else {
-              pageNum = currentPage - 2 + i;
-            }
-            return (
-              <button
-                key={pageNum}
-                onClick={() => handlePageChange(pageNum)}
-                className={`px-3 py-1.5 text-sm border rounded ${
-                  currentPage === pageNum
-                    ? "bg-primary text-white border-primary"
-                    : "border-gray-300 hover:bg-gray-100 bg-white"
-                }`}
-              >
-                {pageNum}
-              </button>
-            );
-          })}
-
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
-          >
-            Next ›
-          </button>
-          <button
-            onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage === totalPages}
-            className="px-3 py-1.5 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed bg-white"
-          >
-            Last »
-          </button>
-
-          <div className="flex items-center gap-2 ml-4">
-            <span className="text-sm text-gray-600">Per page:</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white"
-            >
-              {[4, 8, 12, 16, 20].map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </div>
         </div>
       )}
     </div>
