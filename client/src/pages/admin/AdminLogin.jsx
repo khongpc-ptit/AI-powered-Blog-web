@@ -3,11 +3,9 @@ import { Link } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import { assets } from "../../assets/assets";
-import { authApi, saveTokens, userApi } from "../../services/auth.api";
+import { authApi, userApi } from "../../services/auth.api";
 
 const ADMIN_DASHBOARD_PATH = "/admin";
-
-const adminRoles = ["admin", "super_admin", "content_manager", "blogger"];
 
 const AdminLogin = () => {
   const [email, setEmail] = useState("");
@@ -16,16 +14,6 @@ const AdminLogin = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const getRole = (user) => {
-    return (
-      user?.role?.name ||
-      user?.role?.role_name ||
-      user?.role_name ||
-      user?.role ||
-      "user"
-    );
-  };
 
   const clearLoginData = () => {
     localStorage.removeItem("accessToken");
@@ -53,6 +41,7 @@ const AdminLogin = () => {
       const accessToken =
         data.result?.access_token ||
         data.result?.accessToken ||
+        data.result?.accessToken ||
         data.access_token ||
         data.accessToken;
 
@@ -62,51 +51,39 @@ const AdminLogin = () => {
         data.refresh_token ||
         data.refreshToken;
 
-      if (!accessToken || !refreshToken) {
-        setError("Không nhận được token đăng nhập.");
+      if (!accessToken) {
+        setError("Không nhận được access token đăng nhập.");
+        clearLoginData();
         return;
       }
 
-      saveTokens({
-        accessToken,
-        refreshToken,
-      });
+      localStorage.setItem("accessToken", accessToken);
+
+      if (refreshToken) {
+        localStorage.setItem("refreshToken", refreshToken);
+      }
 
       let currentUser = null;
 
       try {
         const profileRes = await userApi.getProfile();
-        currentUser = profileRes.result || profileRes.user || profileRes.data;
+        console.log("Profile response:", profileRes);
+
+        currentUser =
+          profileRes.result || profileRes.user || profileRes.data || null;
       } catch (profileError) {
         console.log("Cannot get profile, use login response:", profileError);
 
         currentUser =
-          data.result?.user ||
-          data.user ||
-          data.result?.user_info ||
-          data.result ||
-          null;
-      }
-
-      if (!currentUser) {
-        setError("Không lấy được thông tin tài khoản.");
-        clearLoginData();
-        return;
-      }
-
-      const role = getRole(currentUser);
-
-      if (!adminRoles.includes(role)) {
-        clearLoginData();
-        setError("Tài khoản này không có quyền truy cập trang admin.");
-        return;
+          data.result?.user || data.user || data.result?.user_info || null;
       }
 
       const userToSave = {
-        id: currentUser._id || currentUser.id || currentUser.user_id || "",
-        name: currentUser.name || email.split("@")[0],
-        email: currentUser.email || email.trim(),
-        role,
+        id: currentUser?._id || currentUser?.id || currentUser?.user_id || "",
+        name: currentUser?.name || email.split("@")[0],
+        email: currentUser?.email || email.trim(),
+        role: currentUser?.role || currentUser?.role_name || "admin",
+        role_id: currentUser?.role_id || "",
         type: "admin",
       };
 
@@ -116,9 +93,11 @@ const AdminLogin = () => {
       localStorage.setItem("isAdmin", "true");
       localStorage.setItem("ptitblog_admin_token", accessToken);
 
+      // Backend đã check quyền, frontend chỉ redirect vào dashboard
       window.location.href = ADMIN_DASHBOARD_PATH;
     } catch (err) {
       console.error("Admin login failed:", err);
+      clearLoginData();
       setError(err.message || "Email hoặc mật khẩu không đúng.");
     } finally {
       setLoading(false);

@@ -8,6 +8,11 @@ import { useAuth } from "../../context/AuthContext";
 const Sidebar = () => {
   const { user } = useAuth();
 
+  const localUser = JSON.parse(localStorage.getItem("currentUser") || "null");
+  const isAdmin = localStorage.getItem("isAdmin");
+
+  const currentUser = user || localUser;
+
   const menuItems = [
     {
       name: "Dashboard",
@@ -68,10 +73,19 @@ const Sidebar = () => {
     },
   ];
 
-  const userWithRole = user ? { ...user, role: user.role || user.role_id } : null;
-  const visibleMenuItems = menuItems.filter((item) =>
-    canAccessAny(userWithRole, item.permissions),
-  );
+  const userWithRole = currentUser
+    ? {
+        ...currentUser,
+        role: currentUser.role || currentUser.role_id,
+      }
+    : null;
+
+  const visibleMenuItems =
+    isAdmin === "true"
+      ? menuItems
+      : menuItems.filter((item) =>
+          canAccessAny(userWithRole, item.permissions),
+        );
 
   return (
     <div className="flex flex-col border-r border-gray-200 min-h-full pt-6">
