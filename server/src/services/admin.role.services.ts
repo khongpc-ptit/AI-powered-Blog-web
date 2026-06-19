@@ -74,8 +74,8 @@ class AdminRoleService {
       })
     }
 
-    // 2. Không cho phép xóa role mặc định của hệ thống (USER, ADMIN)
-    const protectedRoles = ['USER', 'ADMIN']
+    //  Không cho phép xóa role mặc định của hệ thống (USER, SUPER_ADMIN)
+    const protectedRoles = ['USER', 'SUPER_ADMIN']
     if (protectedRoles.includes(role.name.toUpperCase())) {
       throw new errorWithStatus({
         message: ADMIN_ROLE_MESSAGES.CANNOT_DELETE_DEFAULT_ROLE,
@@ -83,7 +83,7 @@ class AdminRoleService {
       })
     }
 
-    // 3. Kiểm tra xem có user nào đang dùng role này không
+    //  Kiểm tra xem có user nào đang dùng role này không
     const usersWithRole = await databaseService.users.countDocuments({ role_id: new ObjectId(id) })
     if (usersWithRole > 0) {
       throw new errorWithStatus({
@@ -92,7 +92,7 @@ class AdminRoleService {
       })
     }
 
-    // 4. Xóa role
+    //  Xóa role
     await databaseService.roles.deleteOne({ _id: new ObjectId(id) })
     return role
   }
