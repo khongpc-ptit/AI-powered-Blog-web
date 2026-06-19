@@ -1,23 +1,33 @@
 import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
 
+const isValidJwt = (token) => {
+  return (
+    token &&
+    token !== "null" &&
+    token !== "undefined" &&
+    token.split(".").length === 3
+  );
+};
+
 const AdminProtectedRoute = () => {
   const accessToken = localStorage.getItem("accessToken");
-  const adminToken = localStorage.getItem("ptitblog_admin_token");
   const isAdmin = localStorage.getItem("isAdmin");
   const isLoggedIn = localStorage.getItem("isLoggedIn");
 
+  const hasValidToken = isValidJwt(accessToken);
+
   console.log("ADMIN_PROTECTED_CHECK:", {
     accessToken,
-    adminToken,
     isAdmin,
     isLoggedIn,
+    hasValidToken,
   });
 
-  const hasToken = !!accessToken || !!adminToken;
-
-  if (!hasToken || isLoggedIn !== "true") {
-    console.log("ADMIN_PROTECTED_REDIRECT: /adminlogin - missing token/login");
+  if (!hasValidToken || isLoggedIn !== "true") {
+    console.log(
+      "ADMIN_PROTECTED_REDIRECT: /adminlogin - missing valid token/login",
+    );
     return <Navigate to="/adminlogin" replace />;
   }
 
