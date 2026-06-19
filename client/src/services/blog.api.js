@@ -1,5 +1,15 @@
 const API_BASE_URL = "http://localhost:3000/api";
 
+// Shared AbortController for blog requests
+let currentController = null;
+
+const cancelPreviousRequest = () => {
+  if (currentController) {
+    currentController.abort();
+  }
+  currentController = new AbortController();
+};
+
 const handleResponse = async (response) => {
   const data = await response.json();
 
@@ -42,6 +52,8 @@ export const blogApi = {
     sort_by = "created_at",
     order = "desc",
   } = {}) => {
+    cancelPreviousRequest();
+    
     const params = new URLSearchParams();
     params.append("page", page);
     params.append("limit", limit);
@@ -50,7 +62,9 @@ export const blogApi = {
     if (sort_by) params.append("sort_by", sort_by);
     if (order) params.append("order", order);
 
-    const response = await fetch(`${API_BASE_URL}/blogs?${params.toString()}`);
+    const response = await fetch(`${API_BASE_URL}/blogs?${params.toString()}`, {
+      signal: currentController.signal,
+    });
     return handleResponse(response);
   },
 
