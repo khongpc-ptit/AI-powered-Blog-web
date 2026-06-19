@@ -2,10 +2,11 @@ import React from "react";
 import { NavLink } from "react-router-dom";
 import { assets } from "../../assets/assets";
 import { PERMISSIONS } from "../../constants/rbac";
-import { canAccessAny, getCurrentUser } from "../../utils/permission";
+import { canAccessAny } from "../../utils/permission";
+import { useAuth } from "../../context/AuthContext";
 
 const Sidebar = () => {
-  const currentUser = getCurrentUser();
+  const { user } = useAuth();
 
   const menuItems = [
     {
@@ -67,8 +68,9 @@ const Sidebar = () => {
     },
   ];
 
+  const userWithRole = user ? { ...user, role: user.role || user.role_id } : null;
   const visibleMenuItems = menuItems.filter((item) =>
-    canAccessAny(currentUser, item.permissions),
+    canAccessAny(userWithRole, item.permissions),
   );
 
   return (

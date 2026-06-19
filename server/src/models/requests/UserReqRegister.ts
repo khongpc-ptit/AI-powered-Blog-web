@@ -24,7 +24,6 @@ export interface UpdateProfileReqBody {
   name?: string
   date_of_birth?: string // Dữ liệu từ Frontend gửi lên qua JSON luôn là chuỗi string
   location?: string
-  avatar?: string
 }
 export interface ChangePasswordReqBody {
   password: string

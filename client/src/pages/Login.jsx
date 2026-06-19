@@ -15,26 +15,22 @@ const UserLogin = () => {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError("");
 
-    // Sau này nối backend thì thay đoạn này bằng API login và check role admin.
-    if (email === "admin@gmail.com" && password === "123456") {
-      localStorage.setItem("ptitblog_admin_token", "mock_admin_token");
-      navigate("/admin");
-      return;
+    try {
+      await login({ email, password });
+      navigate(redirectPath, { replace: true });
+    } catch (err) {
+      setError(err.message || "Email hoặc mật khẩu không đúng.");
+    } finally {
+      setLoading(false);
     }
-
-    // User login
-    const result = login(email, password);
-
-    if (!result.success) {
-      alert(result.message || "Email hoặc mật khẩu không đúng");
-      return;
-    }
-
-    navigate(redirectPath);
   };
 
   return (
@@ -58,6 +54,12 @@ const UserLogin = () => {
             </p>
           </div>
 
+          {error && (
+            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="mt-6 w-full text-gray-600">
             <div className="flex flex-col">
               <label>Email:</label>
@@ -68,6 +70,7 @@ const UserLogin = () => {
                 required
                 placeholder="Your email"
                 className="border-b-2 border-gray-300 outline-none mb-6 py-2 focus:border-primary"
+                disabled={loading}
               />
             </div>
 
@@ -80,14 +83,16 @@ const UserLogin = () => {
                 required
                 placeholder="Your password"
                 className="border-b-2 border-gray-300 outline-none mb-6 py-2 focus:border-primary"
+                disabled={loading}
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 font-medium bg-primary text-white rounded cursor-pointer hover:bg-primary/90 transition-all"
+              disabled={loading}
+              className="w-full py-3 font-medium bg-primary text-white rounded cursor-pointer hover:bg-primary/90 transition-all disabled:opacity-60"
             >
-              Login
+              {loading ? "Logging in..." : "Login"}
             </button>
           </form>
 
@@ -96,10 +101,6 @@ const UserLogin = () => {
             <Link to="/register" className="text-primary font-medium">
               Register
             </Link>
-          </p>
-
-          <p className="text-center text-xs text-gray-400 mt-4">
-            Admin demo: admin@gmail.com / 123456
           </p>
         </div>
       </div>

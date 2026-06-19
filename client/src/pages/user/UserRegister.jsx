@@ -1,11 +1,9 @@
 import React, { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import { assets } from "../../assets/assets";
 import { useAuth } from "../../context/AuthContext";
-
-const currentYear = new Date().getFullYear();
 
 const UserRegister = () => {
   const navigate = useNavigate();
@@ -14,35 +12,41 @@ const UserRegister = () => {
     name: "",
     email: "",
     password: "",
-    confirmPassword: "",
-    yearOfBirth: "",
-    address: "",
-    phone: "",
+    confirm_password: "",
+    date_of_birth: "",
   });
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    setError("");
+    setErrors((prev) => ({ ...prev, [e.target.name]: "" }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (formData.password !== formData.confirmPassword) {
-      setError("Mật khẩu nhập lại không khớp.");
-      return;
-    }
-
     setLoading(true);
-    setError("");
+    setErrors({});
 
     try {
-      await register(formData);
+      await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        confirm_password: formData.confirm_password,
+        date_of_birth: formData.date_of_birth,
+      });
       navigate("/profile", { replace: true });
     } catch (err) {
-      setError(err.message || "Đăng ký thất bại.");
+      if (err.errors) {
+        const fieldErrors = {};
+        Object.keys(err.errors).forEach((field) => {
+          fieldErrors[field] = err.errors[field].msg;
+        });
+        setErrors(fieldErrors);
+      } else {
+        setErrors({ general: err.message || "Đăng ký thất bại." });
+      }
     } finally {
       setLoading(false);
     }
@@ -72,10 +76,10 @@ const UserRegister = () => {
               </p>
             </div>
 
-            {error && (
-              <p className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
-                {error}
-              </p>
+            {errors.general && (
+              <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {errors.general}
+              </div>
             )}
 
             <form
@@ -91,8 +95,14 @@ const UserRegister = () => {
                   type="text"
                   required
                   placeholder="Your name"
-                  className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                  disabled={loading}
+                  className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                    errors.name ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
+                {errors.name && (
+                  <p className="mt-1 text-xs text-red-500">{errors.name}</p>
+                )}
               </div>
 
               <div className="sm:col-span-2">
@@ -104,8 +114,14 @@ const UserRegister = () => {
                   type="email"
                   required
                   placeholder="your.email@example.com"
-                  className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                  disabled={loading}
+                  className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                    errors.email ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
+                {errors.email && (
+                  <p className="mt-1 text-xs text-red-500">{errors.email}</p>
+                )}
               </div>
 
               <div>
@@ -116,62 +132,52 @@ const UserRegister = () => {
                   onChange={handleChange}
                   type="password"
                   required
-                  minLength={6}
-                  placeholder="At least 6 characters"
-                  className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                  placeholder="At least 6 characters with uppercase, lowercase, number and symbol"
+                  disabled={loading}
+                  className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                    errors.password ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
+                {errors.password && (
+                  <p className="mt-1 text-xs text-red-500">{errors.password}</p>
+                )}
               </div>
 
               <div>
                 <label className="text-sm font-medium">Confirm password</label>
                 <input
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
+                  name="confirm_password"
+                  value={formData.confirm_password}
                   onChange={handleChange}
                   type="password"
                   required
-                  minLength={6}
                   placeholder="Retype password"
-                  className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                  disabled={loading}
+                  className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                    errors.confirm_password ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Year of birth</label>
-                <input
-                  name="yearOfBirth"
-                  value={formData.yearOfBirth}
-                  onChange={handleChange}
-                  type="number"
-                  min="1900"
-                  max={currentYear}
-                  placeholder="2004"
-                  className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">Phone</label>
-                <input
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleChange}
-                  type="tel"
-                  placeholder="Your phone number"
-                  className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
-                />
+                {errors.confirm_password && (
+                  <p className="mt-1 text-xs text-red-500">{errors.confirm_password}</p>
+                )}
               </div>
 
               <div className="sm:col-span-2">
-                <label className="text-sm font-medium">Address</label>
+                <label className="text-sm font-medium">Date of birth</label>
                 <input
-                  name="address"
-                  value={formData.address}
+                  name="date_of_birth"
+                  value={formData.date_of_birth}
                   onChange={handleChange}
-                  type="text"
-                  placeholder="Your address"
-                  className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                  type="date"
+                  required
+                  disabled={loading}
+                  className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                    errors.date_of_birth ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
+                {errors.date_of_birth && (
+                  <p className="mt-1 text-xs text-red-500">{errors.date_of_birth}</p>
+                )}
               </div>
 
               <button

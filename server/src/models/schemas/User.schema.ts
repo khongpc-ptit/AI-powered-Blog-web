@@ -10,7 +10,6 @@ interface UserType {
   date_of_birth: Date
   role_id: ObjectId
   location?: string //optional
-  avatar?: string //optional
   created_at?: Date
   updated_at?: Date
 }
@@ -26,7 +25,6 @@ class User {
   updated_at: Date
   role_id: ObjectId
   location: string //optional
-  avatar: string //optional
   constructor(user: UserType) {
     const dateNow = new Date()
     this._id = user._id
@@ -38,7 +36,6 @@ class User {
     this.updated_at = user.updated_at || dateNow
     this.role_id = user.role_id
     this.location = user.location || ''
-    this.avatar = user.avatar || ''
   }
 }
 export default User

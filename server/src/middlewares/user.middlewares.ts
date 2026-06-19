@@ -25,11 +25,6 @@ export const updateProfileValidator = validate(
         optional: true,
         isString: { errorMessage: USER_MESSAGES.LOCATION_MUST_BE_A_STRING },
         trim: true
-      },
-      avatar: {
-        optional: true,
-        isURL: { errorMessage: USER_MESSAGES.AVATAR_MUST_BE_A_VALID_URL },
-        trim: true
       }
     },
     ['body']

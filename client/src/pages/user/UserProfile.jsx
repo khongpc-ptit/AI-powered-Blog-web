@@ -1,40 +1,52 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 import { useAuth } from "../../context/AuthContext";
 import { assets } from "../../assets/assets";
 
-const currentYear = new Date().getFullYear();
-
 const UserProfile = () => {
-  const { user, updateProfile, changePassword } = useAuth();
+  const { user, updateProfile, changePassword, refreshUserProfile } = useAuth();
   const [activeTab, setActiveTab] = useState("profile");
   const [profileForm, setProfileForm] = useState({
     name: user?.name || "",
-    email: user?.email || "",
-    yearOfBirth: user?.yearOfBirth || "",
-    address: user?.address || "",
-    phone: user?.phone || "",
+    date_of_birth: user?.date_of_birth ? user.date_of_birth.split("T")[0] : "",
+    location: user?.location || "",
   });
   const [passwordForm, setPasswordForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
+    password: "",
+    new_password: "",
+    confirm_password: "",
   });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        name: user.name || "",
+        date_of_birth: user.date_of_birth ? user.date_of_birth.split("T")[0] : "",
+        location: user.location || "",
+      });
+    }
+  }, [user]);
 
   const handleProfileChange = (e) => {
     setProfileForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setMessage("");
     setError("");
+    setErrors((prev) => ({ ...prev, [e.target.name]: "" }));
   };
 
   const handlePasswordChange = (e) => {
     setPasswordForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     setMessage("");
     setError("");
+    setErrors({});
   };
 
   const handleUpdateProfile = async (e) => {
@@ -42,12 +54,36 @@ const UserProfile = () => {
     setLoading(true);
     setError("");
     setMessage("");
+    setErrors({});
+
+    const payload = {};
+    if (profileForm.name !== (user?.name || "")) payload.name = profileForm.name;
+    if (profileForm.date_of_birth !== (user?.date_of_birth ? user.date_of_birth.split("T")[0] : "")) {
+      payload.date_of_birth = profileForm.date_of_birth;
+    }
+    if (profileForm.location !== (user?.location || "")) payload.location = profileForm.location;
+
+    if (Object.keys(payload).length === 0) {
+      setError("Không có thông tin nào được thay đổi.");
+      setLoading(false);
+      return;
+    }
 
     try {
-      await updateProfile(profileForm);
+      await updateProfile(payload);
+      await refreshUserProfile();
       setMessage("Cập nhật thông tin tài khoản thành công.");
     } catch (err) {
-      setError(err.message || "Cập nhật thất bại.");
+      if (err.errors) {
+        const fieldErrors = {};
+        Object.keys(err.errors).forEach((field) => {
+          fieldErrors[field] = err.errors[field].msg;
+        });
+        setErrors(fieldErrors);
+        setError("Vui lòng kiểm tra lại thông tin.");
+      } else {
+        setError(err.message || "Cập nhật thất bại.");
+      }
     } finally {
       setLoading(false);
     }
@@ -56,25 +92,38 @@ const UserProfile = () => {
   const handleChangePassword = async (e) => {
     e.preventDefault();
 
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setError("Mật khẩu mới nhập lại không khớp.");
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      setErrors({ confirm_password: "Mật khẩu mới nhập lại không khớp." });
       return;
     }
 
     setLoading(true);
     setError("");
     setMessage("");
+    setErrors({});
 
     try {
-      await changePassword(passwordForm);
+      await changePassword({
+        password: passwordForm.password,
+        new_password: passwordForm.new_password,
+        confirm_password: passwordForm.confirm_password,
+      });
       setPasswordForm({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
+        password: "",
+        new_password: "",
+        confirm_password: "",
       });
       setMessage("Đổi mật khẩu thành công.");
     } catch (err) {
-      setError(err.message || "Đổi mật khẩu thất bại.");
+      if (err.errors) {
+        const fieldErrors = {};
+        Object.keys(err.errors).forEach((field) => {
+          fieldErrors[field] = err.errors[field].msg;
+        });
+        setErrors(fieldErrors);
+      } else {
+        setError(err.message || "Đổi mật khẩu thất bại.");
+      }
     } finally {
       setLoading(false);
     }
@@ -115,6 +164,7 @@ const UserProfile = () => {
                       setActiveTab("profile");
                       setError("");
                       setMessage("");
+                      setErrors({});
                     }}
                     className={`px-4 py-2 rounded-full cursor-pointer transition-all ${
                       activeTab === "profile"
@@ -129,6 +179,7 @@ const UserProfile = () => {
                       setActiveTab("password");
                       setError("");
                       setMessage("");
+                      setErrors({});
                     }}
                     className={`px-4 py-2 rounded-full cursor-pointer transition-all ${
                       activeTab === "password"
@@ -142,15 +193,15 @@ const UserProfile = () => {
               </div>
             </div>
 
-            {(message || error) && (
-              <p
-                className={`mb-5 rounded-lg border px-4 py-3 text-sm ${
-                  message
-                    ? "border-green-200 bg-green-50 text-green-600"
-                    : "border-red-200 bg-red-50 text-red-600"
-                }`}
-              >
-                {message || error}
+            {message && (
+              <p className="mb-5 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-600">
+                {message}
+              </p>
+            )}
+
+            {error && (
+              <p className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                {error}
               </p>
             )}
 
@@ -176,57 +227,63 @@ const UserProfile = () => {
                     onChange={handleProfileChange}
                     type="text"
                     required
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                    disabled={loading}
+                    className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                      errors.name ? "border-red-500" : "border-gray-300"
+                    }`}
                   />
+                  {errors.name && (
+                    <p className="mt-1 text-xs text-red-500">{errors.name}</p>
+                  )}
                 </div>
 
                 <div>
                   <label className="text-sm font-medium">Email</label>
                   <input
                     name="email"
-                    value={profileForm.email}
+                    value={user?.email || ""}
                     type="email"
                     disabled
                     className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-gray-400 outline-none"
                   />
                   <p className="mt-1 text-xs text-gray-400">
-                    Email dùng để đăng nhập nên không chỉnh ở frontend mock.
+                    Email không thể thay đổi.
                   </p>
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Year of birth</label>
+                  <label className="text-sm font-medium">Date of birth</label>
                   <input
-                    name="yearOfBirth"
-                    value={profileForm.yearOfBirth}
+                    name="date_of_birth"
+                    value={profileForm.date_of_birth}
                     onChange={handleProfileChange}
-                    type="number"
-                    min="1900"
-                    max={currentYear}
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                    type="date"
+                    disabled={loading}
+                    className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                      errors.date_of_birth ? "border-red-500" : "border-gray-300"
+                    }`}
                   />
+                  {errors.date_of_birth && (
+                    <p className="mt-1 text-xs text-red-500">{errors.date_of_birth}</p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="text-sm font-medium">Phone</label>
+                  <label className="text-sm font-medium">Location</label>
                   <input
-                    name="phone"
-                    value={profileForm.phone}
-                    onChange={handleProfileChange}
-                    type="tel"
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="text-sm font-medium">Address</label>
-                  <input
-                    name="address"
-                    value={profileForm.address}
+                    name="location"
+                    value={profileForm.location}
                     onChange={handleProfileChange}
                     type="text"
-                    className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
+                    disabled={loading}
+                    placeholder="Your location"
+                    className={`mt-2 w-full rounded-lg border px-4 py-3 outline-none focus:border-primary ${
+                      errors.location ? "border-red-500" : "border-gray-300"
+                    }`}
                   />
+                  {errors.location && (
+                    <p className="mt-1 text-xs text-red-500">{errors.location}</p>
+                  )}
                 </div>
 
                 <button
@@ -254,42 +311,118 @@ const UserProfile = () => {
                     <label className="text-sm font-medium">
                       Current password
                     </label>
-                    <input
-                      name="currentPassword"
-                      value={passwordForm.currentPassword}
-                      onChange={handlePasswordChange}
-                      type="password"
-                      required
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
-                    />
+                    <div className="relative">
+                      <input
+                        name="password"
+                        value={passwordForm.password}
+                        onChange={handlePasswordChange}
+                        type={showPassword ? "text" : "password"}
+                        required
+                        disabled={loading}
+                        placeholder="Enter your current password"
+                        className={`mt-2 w-full rounded-lg border px-4 py-3 pr-12 outline-none focus:border-primary ${
+                          errors.password ? "border-red-500" : "border-gray-300"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                    {errors.password && (
+                      <p className="mt-1 text-xs text-red-500">{errors.password}</p>
+                    )}
                   </div>
 
                   <div>
                     <label className="text-sm font-medium">New password</label>
-                    <input
-                      name="newPassword"
-                      value={passwordForm.newPassword}
-                      onChange={handlePasswordChange}
-                      type="password"
-                      required
-                      minLength={6}
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
-                    />
+                    <div className="relative">
+                      <input
+                        name="new_password"
+                        value={passwordForm.new_password}
+                        onChange={handlePasswordChange}
+                        type={showNewPassword ? "text" : "password"}
+                        required
+                        disabled={loading}
+                        placeholder="At least 6 characters"
+                        className={`mt-2 w-full rounded-lg border px-4 py-3 pr-12 outline-none focus:border-primary ${
+                          errors.new_password ? "border-red-500" : "border-gray-300"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showNewPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                    {errors.new_password && (
+                      <p className="mt-1 text-xs text-red-500">{errors.new_password}</p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500">
+                      Tối thiểu 6 ký tự, gồm chữ hoa, chữ thường, số và ký tự đặc biệt.
+                    </p>
                   </div>
 
                   <div>
                     <label className="text-sm font-medium">
                       Confirm new password
                     </label>
-                    <input
-                      name="confirmPassword"
-                      value={passwordForm.confirmPassword}
-                      onChange={handlePasswordChange}
-                      type="password"
-                      required
-                      minLength={6}
-                      className="mt-2 w-full rounded-lg border border-gray-300 px-4 py-3 outline-none focus:border-primary"
-                    />
+                    <div className="relative">
+                      <input
+                        name="confirm_password"
+                        value={passwordForm.confirm_password}
+                        onChange={handlePasswordChange}
+                        type={showConfirmPassword ? "text" : "password"}
+                        required
+                        disabled={loading}
+                        placeholder="Re-enter your new password"
+                        className={`mt-2 w-full rounded-lg border px-4 py-3 pr-12 outline-none focus:border-primary ${
+                          errors.confirm_password ? "border-red-500" : "border-gray-300"
+                        }`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showConfirmPassword ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                        ) : (
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                    {errors.confirm_password && (
+                      <p className="mt-1 text-xs text-red-500">{errors.confirm_password}</p>
+                    )}
                   </div>
 
                   <button

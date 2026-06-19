@@ -43,7 +43,6 @@ export const USER_MESSAGES = {
   NAME_LENGTH_MUST_BE_FROM_1_TO_100: 'Name length must be from 1 to 100 characters',
   DATE_OF_BIRTH_MUST_BE_ISO8601: 'Date of birth must be a valid ISO 8601 format',
   LOCATION_MUST_BE_A_STRING: 'Location must be a string',
-  AVATAR_MUST_BE_A_VALID_URL: 'Avatar must be a valid URL format',
   UPDATE_PROFILE_SUCCESS: 'Update profile successfully',
   //Change password
   CHANGE_PASSWORD_SUCCESS: 'Change password successfully',
@@ -56,4 +55,29 @@ export const USER_MESSAGES = {
     'Password must be 6-50 characters long and contain at least 1 lowercase letter, 1 uppercase letter, 1 number, and 1 symbol',
   CONFIRM_PASSWORD_MUST_MATCH: 'Confirm password must match the new password',
   password_INCORRECT: 'Old password is incorrect'
+}
+
+export const BLOG_MESSAGES = {
+  GET_CATEGORIES_SUCCESS: 'Get categories successfully',
+  GET_BLOGS_SUCCESS: 'Get blogs successfully',
+  GET_BLOG_SUCCESS: 'Get blog successfully',
+  BLOG_NOT_FOUND: 'Blog not found',
+  GET_COMMENTS_SUCCESS: 'Get comments successfully',
+  ADD_COMMENT_SUCCESS: 'Add comment successfully'
+}
+
+export const ADMIN_BLOG_MESSAGES = {
+  GET_ALL_BLOGS_SUCCESS: 'Get all blogs successfully',
+  CREATE_BLOG_SUCCESS: 'Create blog successfully',
+  UPDATE_BLOG_SUCCESS: 'Update blog successfully',
+  TOGGLE_PUBLISH_SUCCESS: 'Toggle blog publish status successfully',
+  PROMPT_REQUIRED: 'Prompt is required for AI generation',
+  GENERATE_CONTENT_SUCCESS: 'Generate content successfully',
+  BLOG_NOT_FOUND: 'Blog not found'
+}
+
+export const PERMISSION_MESSAGES = {
+  UNAUTHORIZED: 'Unauthorized',
+  ROLE_NOT_FOUND: 'Access Denied: Role not found',
+  INSUFFICIENT_PERMISSIONS: 'Access Denied: Insufficient permissions'
 }

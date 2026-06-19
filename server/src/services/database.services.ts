@@ -1,4 +1,7 @@
 import { Collection, Db, MongoClient, ServerApiVersion } from 'mongodb'
+import Blog from '~/models/schemas/Blog.schema'
+import Category from '~/models/schemas/Category.shema'
+import Comment from '~/models/schemas/Comment.schema'
 import RefreshToken from '~/models/schemas/RefreshToken.schema'
 import Role from '~/models/schemas/Role.schema'
 import User from '~/models/schemas/User.schema'
@@ -31,6 +34,16 @@ class DatabaseService {
   get roles(): Collection<Role> {
     return this.db.collection(process.env.DB_ROLES_COLLECTION as string)
   }
+  get blogs(): Collection<Blog> {
+    return this.db.collection(process.env.DB_BLOGS_COLLECTION as string)
+  }
+  get comments(): Collection<Comment> {
+    return this.db.collection(process.env.DB_COMMENTS_COLLECTION as string)
+  } 
+  get categories(): Collection<Category> {
+    return this.db.collection(process.env.DB_CATEGORIES_COLLECTION as string)
+  }
+
 }
 const databaseService = new DatabaseService()
 export default databaseService
