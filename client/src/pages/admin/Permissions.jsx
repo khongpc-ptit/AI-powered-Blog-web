@@ -64,6 +64,10 @@ const Permissions = () => {
     }
 
     if (err?.status === 409) {
+      if (err.message === "Cannot delete role that is assigned to users") {
+        return "Role này đang được gán cho tài khoản, không thể xóa. Hãy đổi role hoặc xóa tài khoản đang dùng role này trước.";
+      }
+
       return err.message || "Role này đang được sử dụng, không thể xóa.";
     }
 
@@ -101,7 +105,7 @@ const Permissions = () => {
     if (!roleId) return "";
 
     if (typeof roleId === "object") {
-      return roleId._id || "";
+      return roleId._id || roleId.id || roleId.$oid || "";
     }
 
     return roleId;
@@ -118,8 +122,13 @@ const Permissions = () => {
   };
 
   const getRoleUsageCount = (roleId) => {
-    return staffs.filter((staff) => getRoleIdValue(staff.role_id) === roleId)
-      .length;
+    return staffs.filter((staff) => {
+      const staffRoleId = getRoleIdValue(
+        staff?.role_id || staff?.roleId || staff?.role,
+      );
+
+      return staffRoleId === roleId;
+    }).length;
   };
 
   const isRoleInUse = (role) => {
@@ -205,7 +214,6 @@ const Permissions = () => {
     const data = await roleApi.getRoles();
 
     const roleList = data.result || [];
-
     const roleListWithoutUser = roleList.filter((role) => !isUserRole(role));
 
     setRoles(roleListWithoutUser);
@@ -258,7 +266,6 @@ const Permissions = () => {
       setSelectedPermissions([]);
       return;
     }
-  };
 
     setSelectedPermissions(selectedRole.permissions || []);
   }, [selectedRole]);
@@ -356,17 +363,6 @@ const Permissions = () => {
       return;
     }
 
-    if (isRoleInUse(deleteConfirmRole)) {
-      showMessage(
-        "error",
-        `Role "${formatRoleName(
-          deleteConfirmRole.name,
-        )}" đang có tài khoản sử dụng, không thể xóa.`,
-      );
-      setDeleteConfirmRole(null);
-      return;
-    }
-
     try {
       setDeletingRoleId(deleteConfirmRole._id);
       clearMessage();
@@ -384,7 +380,20 @@ const Permissions = () => {
         `Đã xóa role "${formatRoleName(deletedRoleName)}" thành công.`,
       );
     } catch (err) {
-      showMessage("error", getErrorMessage(err));
+      const roleName = deleteConfirmRole?.name;
+
+      setDeleteConfirmRole(null);
+
+      if (err?.message === "Cannot delete role that is assigned to users") {
+        showMessage(
+          "error",
+          `Role "${formatRoleName(
+            roleName,
+          )}" đang được gán cho tài khoản, không thể xóa. Hãy đổi role hoặc xóa tài khoản đang dùng role này trước.`,
+        );
+      } else {
+        showMessage("error", getErrorMessage(err));
+      }
     } finally {
       setDeletingRoleId("");
     }

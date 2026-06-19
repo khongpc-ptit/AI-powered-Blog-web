@@ -29,33 +29,10 @@ const handleResponse = async (response) => {
   return data;
 };
 
-const getAuthHeaders = () => {
-  const accessToken =
-    localStorage.getItem("accessToken") ||
-    localStorage.getItem("token") ||
-    localStorage.getItem("adminToken") ||
-    localStorage.getItem("ptitblog_admin_token");
-
-  const headers = {
-    "Content-Type": "application/json",
-  };
-
-  if (
-    accessToken &&
-    accessToken !== "null" &&
-    accessToken !== "undefined" &&
-    accessToken.split(".").length === 3
-  ) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
-
-  return headers;
-};
-
 export const userApi = {
-  // 1) Lấy danh sách tất cả User
-  // GET /api/admin/users?page=1&limit=10&search=
   getUsers: async ({ page = 1, limit = 10, search = "" } = {}) => {
+    const accessToken = localStorage.getItem("accessToken");
+
     const params = new URLSearchParams();
 
     params.append("page", page);
@@ -69,16 +46,18 @@ export const userApi = {
       `${API_BASE_URL}/admin/users?${params.toString()}`,
       {
         method: "GET",
-        headers: getAuthHeaders(),
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
       },
     );
 
     return handleResponse(response);
   },
 
-  // 2) Cập nhật thông tin User
-  // PATCH /api/admin/users/:id
   updateUser: async (id, { name, email, date_of_birth, location, role_id }) => {
+    const accessToken = localStorage.getItem("accessToken");
+
     const body = {};
 
     if (name !== undefined) {
@@ -103,19 +82,24 @@ export const userApi = {
 
     const response = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
       method: "PATCH",
-      headers: getAuthHeaders(),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify(body),
     });
 
     return handleResponse(response);
   },
 
-  // 3) Xóa User
-  // DELETE /api/admin/users/:id
   deleteUser: async (id) => {
+    const accessToken = localStorage.getItem("accessToken");
+
     const response = await fetch(`${API_BASE_URL}/admin/users/${id}`, {
       method: "DELETE",
-      headers: getAuthHeaders(),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
 
     return handleResponse(response);
