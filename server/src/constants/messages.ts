@@ -124,9 +124,12 @@ export const ADMIN_ROLE_MESSAGES = {
   GET_ALL_ROLES_SUCCESS: 'Get all roles successfully',
   CREATE_ROLE_SUCCESS: 'Create role successfully',
   UPDATE_ROLE_PERMISSIONS_SUCCESS: 'Update role permissions successfully',
+  DELETE_ROLE_SUCCESS: 'Delete role successfully',
   ROLE_NOT_FOUND: 'Role not found',
   ROLE_NAME_ALREADY_EXISTS: 'Role name already exists',
-  ROLE_NAME_REQUIRED: 'Role name is required'
+  ROLE_NAME_REQUIRED: 'Role name is required',
+  CANNOT_DELETE_DEFAULT_ROLE: 'Cannot delete default system role',
+  ROLE_IN_USE: 'Cannot delete role that is assigned to users'
 }
 
 export const ADMIN_DASHBOARD_MESSAGES = {
