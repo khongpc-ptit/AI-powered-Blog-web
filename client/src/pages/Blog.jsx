@@ -8,6 +8,11 @@ import Loader from "../components/Loader";
 import { useAuth } from "../context/AuthContext";
 import { blogApi } from "../services/blog.api";
 
+// Validate MongoDB ObjectId (24 character hex string)
+const isValidObjectId = (id) => {
+  return typeof id === 'string' && /^[a-fA-F0-9]{24}$/.test(id);
+};
+
 const Blog = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -24,6 +29,11 @@ const Blog = () => {
   // Fetch blog detail
   useEffect(() => {
     const fetchBlogData = async () => {
+      if (!isValidObjectId(id)) {
+        setError("Invalid blog ID");
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       try {
         const data = await blogApi.getBlogById(id);
@@ -44,6 +54,7 @@ const Blog = () => {
   // Fetch comments
   useEffect(() => {
     const fetchComments = async () => {
+      if (!isValidObjectId(id)) return;
       setCommentsLoading(true);
       try {
         const data = await blogApi.getComments(id);
@@ -164,7 +175,7 @@ const Blog = () => {
           )}
           <div
             className="rich-text max-w-3xl mx-auto"
-            dangerouslySetInnerHTML={{ __html: blog.content }}
+            dangerouslySetInnerHTML={{ __html: blog.content || blog.description }}
           />
         </div>
 
