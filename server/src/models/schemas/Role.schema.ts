@@ -5,7 +5,7 @@ interface RoleType {
   _id?: ObjectId
   name: string // Tên chức vụ (VD: "Blogger", "Super Admin")
   description?: string // Mô tả (VD: "Người viết bài cho hệ thống")
-  permissions?: ObjectId[] // Mảng chứa các ID trỏ sang bảng Permission
+  permissions?: string[] // Mảng chứa các mã quyền (VD: ["VIEW_POST", "CREATE_POST"])
   created_at?: Date
   updated_at?: Date
 }
@@ -14,7 +14,7 @@ class Role {
   _id?: ObjectId
   name: string
   description: string
-  permissions: ObjectId[]
+  permissions: string[]
   created_at: Date
   updated_at: Date
 
