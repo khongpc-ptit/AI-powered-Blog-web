@@ -73,6 +73,28 @@ export const togglePublishController = async (req: Request<ParamsDictionary>, re
   })
 }
 
+export const getBlogByIdController = async (req: Request<ParamsDictionary>, res: Response) => {
+  const { id } = req.params as { id: string }
+
+  const blog = await adminBlogService.getBlogById(id)
+
+  return res.status(HTTP_STATUS.OK).json({
+    message: ADMIN_BLOG_MESSAGES.GET_ALL_BLOGS_SUCCESS,
+    result: blog
+  })
+}
+
+export const deleteBlogByIdController = async (req: Request<ParamsDictionary>, res: Response) => {
+  const { id } = req.params as { id: string }
+
+  const blog = await adminBlogService.deleteBlogById(id)
+
+  return res.status(HTTP_STATUS.OK).json({
+    message: ADMIN_BLOG_MESSAGES.DELETE_BLOG_SUCCESS,
+    result: blog
+  })
+}
+
 export const generateContentController = async (
   req: Request<ParamsDictionary, any, GenerateBlogContentReqBody>,
   res: Response

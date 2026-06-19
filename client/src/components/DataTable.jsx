@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 
 const DataTable = ({
   data = [],
@@ -12,14 +12,32 @@ const DataTable = ({
   itemsPerPageOptions = [5, 10, 20, 50],
   emptyMessage = "No data available",
   loading = false,
+  onSearch,
+  pagination,
+  onPageChange,
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState(defaultSortField);
   const [sortOrder, setSortOrder] = useState(defaultSortOrder);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(
+    pagination?.limit || 10
+  );
   const [dateFilter, setDateFilter] = useState("all");
   const [customFilter, setCustomFilter] = useState("all");
+
+  const isServerPagination = Boolean(pagination && onPageChange);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, dateFilter, customFilter]);
+
+  useEffect(() => {
+    if (pagination) {
+      setCurrentPage(pagination.page || 1);
+      setItemsPerPage(pagination.limit || 10);
+    }
+  }, [pagination]);
 
   const getDateRange = (filter) => {
     const now = new Date();
@@ -100,9 +118,19 @@ const DataTable = ({
     });
   }, [filteredData, sortField, sortOrder]);
 
-  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = sortedData.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedData = useMemo(() => {
+    if (isServerPagination) {
+      // Server-side pagination: data đã được phân trang từ server
+      return sortedData;
+    }
+    // Client-side pagination: cần slice data
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return sortedData.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedData, isServerPagination, currentPage, itemsPerPage]);
+
+  const totalPages = isServerPagination
+    ? (pagination?.total_pages || 1)
+    : Math.ceil(sortedData.length / itemsPerPage);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -113,25 +141,82 @@ const DataTable = ({
     }
   };
 
-  const handlePageChange = (page) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
-  };
-
   const handleItemsPerPageChange = (value) => {
     setItemsPerPage(value);
     setCurrentPage(1);
   };
 
-  const resetFilters = () => {
+  const handleSearch = () => {
+    if (onSearch) {
+      onSearch(searchQuery);
+    }
+  };
+
+  const handlePageChange = (page) => {
+    const maxPage = isServerPagination 
+      ? (pagination?.total_pages || 1) 
+      : totalPages;
+    const newPage = Math.max(1, Math.min(page, maxPage));
+    setCurrentPage(newPage);
+    if (onPageChange) {
+      onPageChange(newPage);
+    }
+  };
+
+  const handleInternalPageChange = (page) => {
+    const maxPage = isServerPagination 
+      ? (pagination?.total_pages || 1) 
+      : totalPages;
+    const newPage = Math.max(1, Math.min(page, maxPage));
+    setCurrentPage(newPage);
+    if (onPageChange) {
+      onPageChange(newPage);
+    }
+  };
+
+  const resetFilters = useCallback(() => {
     setSearchQuery("");
     setDateFilter("all");
     setCustomFilter("all");
     setSortField(defaultSortField);
     setSortOrder(defaultSortOrder);
     setCurrentPage(1);
-  };
+  }, [defaultSortField, defaultSortOrder]);
+
+  const handleSearchChange = useCallback((value) => {
+    setSearchQuery(value);
+    if (isServerPagination) {
+      setCurrentPage(1);
+    }
+  }, [isServerPagination]);
+
+  const handleDateFilterChange = useCallback((value) => {
+    setDateFilter(value);
+    if (isServerPagination) {
+      setCurrentPage(1);
+    }
+  }, [isServerPagination]);
+
+  const handleCustomFilterChange = useCallback((value) => {
+    setCustomFilter(value);
+    if (isServerPagination) {
+      setCurrentPage(1);
+    }
+  }, [isServerPagination]);
 
   const hasActiveFilters = searchQuery || dateFilter !== "all" || customFilter !== "all";
+
+  const effectiveTotalPages = isServerPagination
+    ? (pagination?.total_pages || 1)
+    : totalPages;
+
+  const effectiveTotalItems = isServerPagination
+    ? (pagination?.total_items || data.length)
+    : sortedData.length;
+
+  const effectiveStartIndex = isServerPagination
+    ? ((pagination?.page || 1) - 1) * (pagination?.limit || 10)
+    : (currentPage - 1) * itemsPerPage;
 
   return (
     <div className="w-full">
@@ -143,9 +228,11 @@ const DataTable = ({
             type="text"
             placeholder={searchPlaceholder}
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleSearch();
+              }
             }}
             className="w-full px-4 py-2 pl-10 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
           />
@@ -162,15 +249,35 @@ const DataTable = ({
               d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
             />
           </svg>
+          {(searchQuery || isServerPagination) && (
+            <button
+              onClick={() => {
+                handleSearchChange("");
+                if (onSearch) onSearch("");
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
+
+        {/* Search Button for server pagination */}
+        {isServerPagination && (
+          <button
+            onClick={handleSearch}
+            className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
+          >
+            Search
+          </button>
+        )}
 
         {/* Date Filter */}
         <select
           value={dateFilter}
-          onChange={(e) => {
-            setDateFilter(e.target.value);
-            setCurrentPage(1);
-          }}
+          onChange={(e) => handleDateFilterChange(e.target.value)}
           className="px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white"
         >
           <option value="all">All Time</option>
@@ -183,10 +290,7 @@ const DataTable = ({
         {filterOptions.length > 0 && (
           <select
             value={customFilter}
-            onChange={(e) => {
-              setCustomFilter(e.target.value);
-              setCurrentPage(1);
-            }}
+            onChange={(e) => handleCustomFilterChange(e.target.value)}
             className="px-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white"
           >
             <option value="all">All {filterLabel}</option>
@@ -199,10 +303,10 @@ const DataTable = ({
         )}
 
         {/* Reset Filters */}
-        {hasActiveFilters && (
+        {hasActiveFilters && !isServerPagination && (
           <button
             onClick={resetFilters}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
           >
             Reset
           </button>
@@ -211,14 +315,14 @@ const DataTable = ({
 
       {/* Table */}
       <div className="overflow-x-auto bg-white shadow rounded-lg">
-        <table className="w-full text-sm text-gray-600">
-          <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+        <table className="w-full min-w-[600px] text-xs sm:text-sm text-gray-600">
+          <thead className="text-[10px] sm:text-xs text-gray-700 uppercase bg-gray-50">
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.field}
                   scope="col"
-                  className={`px-4 py-3 ${
+                  className={`px-2 sm:px-4 py-2 sm:py-3 ${
                     column.sortable ? "cursor-pointer hover:bg-gray-100 select-none" : ""
                   } ${column.headerClassName || ""}`}
                   onClick={() => column.sortable && handleSort(column.field)}
@@ -251,7 +355,7 @@ const DataTable = ({
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center">
+                <td colSpan={columns.length} className="px-2 sm:px-4 py-6 sm:py-8 text-center">
                   <div className="flex justify-center items-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                   </div>
@@ -263,7 +367,7 @@ const DataTable = ({
                   {columns.map((column) => (
                     <td
                       key={column.field}
-                      className={`px-4 py-3 ${column.cellClassName || ""}`}
+                      className={`px-2 sm:px-4 py-2 sm:py-3 ${column.cellClassName || ""}`}
                     >
                       {column.render ? column.render(item) : item[column.field]}
                     </td>
@@ -282,9 +386,9 @@ const DataTable = ({
       </div>
 
       {/* Pagination */}
-      <div className="flex flex-wrap justify-between items-center mt-4 gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">Rows per page:</span>
+      <div className="flex flex-col sm:flex-row justify-between items-center sm:items-center mt-3 sm:mt-4 gap-2 px-1">
+        <div className="flex items-center gap-1 sm:gap-2 order-2 sm:order-1">
+          <span className="text-xs sm:text-sm text-gray-600">Rows:</span>
           <select
             value={itemsPerPage}
             onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
@@ -300,43 +404,45 @@ const DataTable = ({
 
         <div className="flex items-center gap-1">
           <span className="text-sm text-gray-600">
-            Showing {startIndex + 1}-{Math.min(startIndex + itemsPerPage, sortedData.length)} of{" "}
-            {sortedData.length}
+            {isServerPagination
+              ? `Showing ${effectiveStartIndex + 1}-${Math.min(effectiveStartIndex + (pagination?.limit || 10), effectiveTotalItems)} of ${effectiveTotalItems}`
+              : `Showing ${(currentPage - 1) * itemsPerPage + 1}-${Math.min(currentPage * itemsPerPage, sortedData.length)} of ${sortedData.length}`
+            }
           </span>
         </div>
 
         <div className="flex items-center gap-1">
           <button
-            onClick={() => handlePageChange(1)}
+            onClick={() => handleInternalPageChange(1)}
             disabled={currentPage === 1}
-            className="px-2 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             First
           </button>
           <button
-            onClick={() => handlePageChange(currentPage - 1)}
+            onClick={() => handleInternalPageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className="px-2 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Prev
           </button>
 
-          {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+          {Array.from({ length: Math.min(5, effectiveTotalPages) }, (_, i) => {
             let pageNum;
-            if (totalPages <= 5) {
+            if (effectiveTotalPages <= 5) {
               pageNum = i + 1;
             } else if (currentPage <= 3) {
               pageNum = i + 1;
-            } else if (currentPage >= totalPages - 2) {
-              pageNum = totalPages - 4 + i;
+            } else if (currentPage >= effectiveTotalPages - 2) {
+              pageNum = effectiveTotalPages - 4 + i;
             } else {
               pageNum = currentPage - 2 + i;
             }
             return (
               <button
                 key={pageNum}
-                onClick={() => handlePageChange(pageNum)}
-                className={`px-3 py-1 text-sm border rounded ${
+                onClick={() => handleInternalPageChange(pageNum)}
+                className={`px-2 sm:px-3 py-0.5 sm:py-1 text-xs border rounded ${
                   currentPage === pageNum
                     ? "bg-primary text-white border-primary"
                     : "border-gray-300 hover:bg-gray-100"
@@ -348,16 +454,16 @@ const DataTable = ({
           })}
 
           <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="px-2 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => handleInternalPageChange(currentPage + 1)}
+            disabled={currentPage === effectiveTotalPages}
+            className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Next
           </button>
           <button
-            onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage === totalPages}
-            className="px-2 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => handleInternalPageChange(effectiveTotalPages)}
+            disabled={currentPage === effectiveTotalPages}
+            className="px-1.5 sm:px-2 py-0.5 sm:py-1 text-xs border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Last
           </button>

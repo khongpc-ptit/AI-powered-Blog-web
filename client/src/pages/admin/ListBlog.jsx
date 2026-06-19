@@ -1,21 +1,77 @@
-import React, { useEffect, useState } from "react";
-import { blog_data } from "../../assets/assets";
+import React, { useEffect, useState, useCallback } from "react";
 import DataTable from "../../components/DataTable";
 import { assets } from "../../assets/assets";
 import { useNavigate } from "react-router-dom";
+import { adminApi } from "../../services/admin.api";
 
 const ListBlog = () => {
   const [blogs, setBlogs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState(null);
   const navigate = useNavigate();
-  const fetchBlogs = async () => {
+
+  const fetchBlogs = useCallback(async ({ search = "", pageNum = 1 } = {}) => {
     setLoading(true);
-    setBlogs(blog_data);
-    setLoading(false);
-  };
-  useEffect(() => {
-    fetchBlogs();
+    setError(null);
+    try {
+      const data = await adminApi.getBlogs({
+        page: pageNum,
+        limit: 10,
+        search,
+      });
+      setBlogs(data.result || []);
+      setPagination(data.pagination || null);
+      setPage(pageNum);
+    } catch (err) {
+      console.error("Failed to fetch blogs:", err);
+      setError(err.message || "Failed to load blogs");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchBlogs({ pageNum: 1 });
+  }, [fetchBlogs]);
+
+  const handleSearch = (searchQuery) => {
+    fetchBlogs({ search: searchQuery, pageNum: 1 });
+  };
+
+  const handlePageChange = (newPage) => {
+    fetchBlogs({ pageNum: newPage });
+  };
+
+  const handlePublishToggle = async (blog) => {
+    try {
+      await adminApi.toggleBlogPublish(blog._id);
+      setBlogs((prev) =>
+        prev.map((b) =>
+          b._id === blog._id ? { ...b, isPublished: !b.isPublished } : b
+        )
+      );
+    } catch (err) {
+      console.error("Failed to toggle publish:", err);
+      alert(err.message || "Failed to toggle publish status");
+    }
+  };
+
+  const handleDelete = async (blog) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete "${blog.title}"?`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      await adminApi.deleteBlog(blog._id);
+      setBlogs((prev) => prev.filter((b) => b._id !== blog._id));
+    } catch (err) {
+      console.error("Failed to delete blog:", err);
+      alert(err.message || "Failed to delete blog");
+    }
+  };
 
   const columns = [
     {
@@ -36,21 +92,31 @@ const ListBlog = () => {
       ),
     },
     {
-      field: "category",
-      header: "Category",
+      field: "subtitle",
+      header: "Subtitle",
       sortable: true,
       render: (item) => (
+        <div className="max-w-xs truncate text-gray-500 text-xs" title={item.subtitle}>
+          {item.subtitle || "-"}
+        </div>
+      ),
+    },
+    {
+      field: "category_name",
+      header: "Category",
+      sortable: false,
+      render: (item) => (
         <span className="px-2 py-1 text-xs bg-primary/10 text-primary rounded-full">
-          {item.category}
+          {item.category_name || "-"}
         </span>
       ),
     },
     {
-      field: "createdAt",
+      field: "created_at",
       header: "Date",
       sortable: true,
       render: (item) => {
-        const BlogDate = new Date(item.createdAt);
+        const BlogDate = new Date(item.created_at);
         return (
           <span className="text-gray-600">
             {BlogDate.toLocaleDateString()}
@@ -63,13 +129,13 @@ const ListBlog = () => {
       header: "Status",
       sortable: true,
       render: (item) => (
-        <p
+        <span
           className={`${
             item.isPublished ? "text-green-600" : "text-orange-700"
           }`}
         >
           {item.isPublished ? "Published" : "Unpublished"}
-        </p>
+        </span>
       ),
     },
     {
@@ -103,20 +169,8 @@ const ListBlog = () => {
 
   const tableData = blogs.map((blog, index) => ({
     ...blog,
-    index: index + 1,
+    index: (page - 1) * 10 + index + 1,
   }));
-
-  const handlePublishToggle = (blog) => {
-    setBlogs((prev) =>
-      prev.map((b) =>
-        b._id === blog._id ? { ...b, isPublished: !b.isPublished } : b
-      )
-    );
-  };
-
-  const handleDelete = (blog) => {
-    setBlogs((prev) => prev.filter((b) => b._id !== blog._id));
-  };
 
   return (
     <div className="flex-1 pt-5 px-5 sm:pt-12 sm:pl-1 bg-blue-50/50">
@@ -126,20 +180,36 @@ const ListBlog = () => {
           Manage and view all blog posts with search, sort, and filter options.
         </p>
       </div>
+
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg flex items-center justify-between">
+          <span>{error}</span>
+          <button
+            onClick={() => fetchBlogs({ pageNum: 1 })}
+            className="text-sm underline hover:no-underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       <DataTable
         data={tableData}
         columns={columns}
-        searchPlaceholder="Search blogs..."
-        searchableFields={["title", "category", "subTitle"]}
+        searchPlaceholder="Search blogs by title or subtitle..."
+        searchableFields={["title", "subtitle"]}
         filterLabel="Status"
         filterOptions={[
           { value: "published", label: "Published", filterFn: (data) => data.filter((item) => item.isPublished) },
           { value: "unpublished", label: "Unpublished", filterFn: (data) => data.filter((item) => !item.isPublished) },
         ]}
-        defaultSortField="createdAt"
+        defaultSortField="created_at"
         defaultSortOrder="desc"
         loading={loading}
         emptyMessage="No blogs found."
+        onSearch={handleSearch}
+        pagination={pagination}
+        onPageChange={handlePageChange}
       />
     </div>
   );

@@ -28,14 +28,34 @@ class AdminBlogService {
 
     const skip = (page - 1) * limit
 
+    const aggregationPipeline = [
+      { $match: matchCondition },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'category_id',
+          foreignField: '_id',
+          as: 'categoryData'
+        }
+      },
+      {
+        $addFields: {
+          category_name: { $ifNull: [{ $arrayElemAt: ['$categoryData.name', 0] }, 'General'] }
+        }
+      },
+      {
+        $project: {
+          description: 0,
+          categoryData: 0
+        }
+      },
+      { $sort: { created_at: -1 } },
+      { $skip: skip },
+      { $limit: limit }
+    ]
+
     const [blogs, total] = await Promise.all([
-      databaseService.blogs
-        .find(matchCondition)
-        .project({description: 0})
-        .sort({ created_at: -1 })
-        .skip(skip)
-        .limit(limit)
-        .toArray(),
+      databaseService.blogs.aggregate(aggregationPipeline).toArray(),
       databaseService.blogs.countDocuments(matchCondition)
     ])
 
@@ -69,7 +89,7 @@ class AdminBlogService {
     const updateData: any = {}
     if (payload.title) updateData.title = payload.title
     if (payload.subtitle) updateData.subtitle = payload.subtitle
-    if (payload.description) updateData.description = payload.description
+    if (payload.description !== undefined) updateData.description = payload.description
     if (payload.category_id) updateData.category_id = new ObjectId(payload.category_id)
     if (payload.image) updateData.image = payload.image
     if (payload.isPublished !== undefined) {
@@ -108,6 +128,30 @@ class AdminBlogService {
     )
 
     return updatedBlog
+  }
+
+  async getBlogById(id: string) {
+    const blog = await databaseService.blogs.findOne({ _id: new ObjectId(id) })
+    if (!blog) {
+      throw new errorWithStatus({
+        message: ADMIN_BLOG_MESSAGES.BLOG_NOT_FOUND,
+        status: HTTP_STATUS.NOT_FOUND
+      })
+    }
+    return blog
+  }
+
+  async deleteBlogById(id: string) {
+    const blog = await databaseService.blogs.findOne({ _id: new ObjectId(id) })
+    if (!blog) {
+      throw new errorWithStatus({
+        message: ADMIN_BLOG_MESSAGES.BLOG_NOT_FOUND,
+        status: HTTP_STATUS.NOT_FOUND
+      })
+    }
+
+    await databaseService.blogs.deleteOne({ _id: new ObjectId(id) })
+    return blog
   }
 }
 
