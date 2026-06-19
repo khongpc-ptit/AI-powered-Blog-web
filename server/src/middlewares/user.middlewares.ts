@@ -69,7 +69,7 @@ export const changePasswordValidator = validate(
         },
         custom: {
           options: (value, { req }) => {
-            if (value !== req.body.password) {
+            if (value !== req.body.new_password) {
               throw new Error(USER_MESSAGES.CONFIRM_PASSWORD_MATCH)
             }
             return true
