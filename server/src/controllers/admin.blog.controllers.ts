@@ -1,11 +1,21 @@
 import { Request, Response } from 'express'
+import { ParamsDictionary } from 'express-serve-static-core'
 import HTTP_STATUS from '~/constants/httpStatus'
+import {
+  CreateBlogReqBody,
+  UpdateBlogReqBody,
+  GetAllBlogsReqQuery,
+  GenerateBlogContentReqBody
+} from '~/models/requests/Blog.requests'
 import adminBlogService from '~/services/admin.blog.services'
 import { generateBlogContentAI } from '~/utils/ai.utils'
 import { ADMIN_BLOG_MESSAGES } from '~/constants/messages'
 
 
-export const getAllBlogsAdmin = async (req: Request, res: Response) => {
+export const getAllBlogsAdminController = async (
+  req: Request<ParamsDictionary, any, any, GetAllBlogsReqQuery>,
+  res: Response
+) => {
   const page = Number(req.query.page) || 1
   const limit = Number(req.query.limit) || 10
   const search = req.query.search as string
@@ -19,7 +29,10 @@ export const getAllBlogsAdmin = async (req: Request, res: Response) => {
   })
 }
 
-export const addBlog = async (req: Request, res: Response) => {
+export const addBlogController = async (
+  req: Request<ParamsDictionary, any, CreateBlogReqBody>,
+  res: Response
+) => {
   const payload = req.body
   // Nếu có file ảnh upload, file path sẽ lưu vào req.file
   if (req.file) {
@@ -35,7 +48,10 @@ export const addBlog = async (req: Request, res: Response) => {
   })
 }
 
-export const updateBlog = async (req: Request, res: Response) => {
+export const updateBlogController = async (
+  req: Request<ParamsDictionary, any, UpdateBlogReqBody>,
+  res: Response
+) => {
   const { id } = req.params as { id: string }
   const payload = req.body
 
@@ -51,7 +67,7 @@ export const updateBlog = async (req: Request, res: Response) => {
   })
 }
 
-export const togglePublish = async (req: Request, res: Response) => {
+export const togglePublishController = async (req: Request<ParamsDictionary>, res: Response) => {
   const { id } = req.params as { id: string }
 
   const blog = await adminBlogService.togglePublish(id)
@@ -62,7 +78,10 @@ export const togglePublish = async (req: Request, res: Response) => {
   })
 }
 
-export const generateContent = async (req: Request, res: Response) => {
+export const generateContentController = async (
+  req: Request<ParamsDictionary, any, GenerateBlogContentReqBody>,
+  res: Response
+) => {
   const { prompt } = req.body
 
   if (!prompt) {

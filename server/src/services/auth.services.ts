@@ -1,6 +1,6 @@
 import User from '~/models/schemas/User.schema'
 import databaseService from './database.services'
-import { UserReqRegister } from '~/models/requests/UserReqRegister'
+import { UserReqRegister } from '~/models/requests/UserRegister.requests'
 import { comparePassword, passwordHash } from '~/utils/bcrypt'
 import { tokenType } from '~/constants/enum'
 import { signToken } from '~/utils/jwt'

@@ -1,5 +1,5 @@
 import jwt, { JwtPayload } from 'jsonwebtoken'
-import { TokenPayload } from '~/models/requests/UserReqRegister'
+import { TokenPayload } from '~/models/requests/UserRegister.requests'
 
 //jwt.sign(payload, secretOrPrivateKey, [options, callback])
 export const signToken = ({
