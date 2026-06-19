@@ -10,6 +10,7 @@ import {
   togglePublishController,
   generateContentController
 } from '~/controllers/admin.blog.controllers'
+import { getDashboardStatsController } from '~/controllers/admin.dashboard.controllers'
 import {
   getAllCategoriesAdminController,
   createCategoryController,
@@ -32,10 +33,23 @@ import {
   resetAdminPasswordController,
   deleteAdminAccountController
 } from '~/controllers/admin.staff.controllers'
+import {
+  getAllPermissionsController,
+  getAllRolesController,
+  createRoleController,
+  updateRolePermissionsController
+} from '~/controllers/admin.role.controllers'
 
 const adminRouter = express.Router()
 
 adminRouter.use(accessTokenValidator);
+
+// 📂 1. Dashboard (Thống kê)
+adminRouter.get(
+  "/dashboard",
+  requirePermission("VIEW_DASHBOARD"),
+  wrapRequestHandler(getDashboardStatsController)
+);
 
 // Quản lý Bài viết (Blogs)
 adminRouter.get(
@@ -142,7 +156,29 @@ adminRouter.patch(
 adminRouter.delete(
   "/staffs/:id",
   requirePermission("MANAGE_ADMIN"),
-    wrapRequestHandler(deleteAdminAccountController)
+  wrapRequestHandler(deleteAdminAccountController)
+);
+
+// 📂 7. Cấu hình Phân quyền động (Roles & Permissions)
+adminRouter.get(
+  "/permissions",
+  requirePermission("MANAGE_ADMIN"),
+  wrapRequestHandler(getAllPermissionsController)
+);
+adminRouter.get(
+  "/roles",
+  requirePermission("MANAGE_ADMIN"),
+  wrapRequestHandler(getAllRolesController)
+);
+adminRouter.post(
+  "/roles",
+  requirePermission("MANAGE_ADMIN"),
+  wrapRequestHandler(createRoleController)
+);
+adminRouter.patch(
+  "/roles/:id/permissions",
+  requirePermission("MANAGE_ADMIN"),
+  wrapRequestHandler(updateRolePermissionsController)
 );
 
 export default adminRouter;
