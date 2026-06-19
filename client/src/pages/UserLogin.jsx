@@ -3,41 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { assets } from "../assets/assets";
-
-const demoAccounts = [
-  {
-    id: "super-001",
-    name: "Super Admin",
-    email: "superadmin@gmail.com",
-    password: "123456",
-    role: "super_admin",
-    type: "admin",
-  },
-  {
-    id: "admin-001",
-    name: "Admin",
-    email: "admin@gmail.com",
-    password: "123456",
-    role: "admin",
-    type: "admin",
-  },
-  {
-    id: "content-001",
-    name: "Content Manager",
-    email: "content@gmail.com",
-    password: "123456",
-    role: "content_manager",
-    type: "admin",
-  },
-  {
-    id: "blogger-001",
-    name: "Blogger",
-    email: "blogger@gmail.com",
-    password: "123456",
-    role: "blogger",
-    type: "admin",
-  },
-];
+import { authApi, saveTokens, userApi } from "../services/auth.api";
 
 const UserLogin = () => {
   const navigate = useNavigate();
@@ -51,44 +17,114 @@ const UserLogin = () => {
 
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
-    const account = demoAccounts.find(
-      (item) =>
-        item.email.toLowerCase() === email.trim().toLowerCase() &&
-        item.password === password,
-    );
+    try {
+      const data = await authApi.login({
+        email: email.trim(),
+        password,
+      });
 
-    if (!account) {
-      setError("Email hoặc mật khẩu không đúng.");
-      return;
+      console.log("Login response:", data);
+
+      const accessToken =
+        data.result?.access_token ||
+        data.result?.accessToken ||
+        data.access_token ||
+        data.accessToken;
+
+      const refreshToken =
+        data.result?.refresh_token ||
+        data.result?.refreshToken ||
+        data.refresh_token ||
+        data.refreshToken;
+
+      if (accessToken && refreshToken) {
+        saveTokens({
+          accessToken,
+          refreshToken,
+        });
+      }
+
+      let currentUser = null;
+
+      try {
+        const profileRes = await userApi.getProfile();
+        currentUser = profileRes.result || profileRes.user || profileRes.data;
+      } catch (profileError) {
+        console.log(
+          "Cannot get profile, use login response instead:",
+          profileError,
+        );
+
+        currentUser =
+          data.result?.user ||
+          data.user ||
+          data.result?.user_info ||
+          data.result ||
+          null;
+      }
+
+      if (!currentUser) {
+        currentUser = {
+          name: email.split("@")[0],
+          email: email.trim(),
+          role: "user",
+          type: "user",
+        };
+      }
+
+      const role =
+        currentUser.role?.name ||
+        currentUser.role_name ||
+        currentUser.role ||
+        "user";
+
+      const userType =
+        role === "admin" ||
+        role === "super_admin" ||
+        role === "content_manager" ||
+        role === "blogger"
+          ? "admin"
+          : "user";
+
+      const userToSave = {
+        id: currentUser._id || currentUser.id || currentUser.user_id || "",
+        name: currentUser.name || email.split("@")[0],
+        email: currentUser.email || email.trim(),
+        role,
+        type: userType,
+      };
+
+      localStorage.setItem("currentUser", JSON.stringify(userToSave));
+      localStorage.setItem("user", JSON.stringify(userToSave));
+      localStorage.setItem("isLoggedIn", "true");
+
+      if (userType === "admin") {
+        localStorage.setItem("isAdmin", "true");
+        localStorage.setItem(
+          "ptitblog_admin_token",
+          accessToken || "admin_token",
+        );
+        navigate("/admin");
+        return;
+      }
+
+      localStorage.setItem("isAdmin", "false");
+      localStorage.removeItem("ptitblog_admin_token");
+
+      navigate(redirectPath === "/" ? "/profile" : redirectPath);
+    } catch (err) {
+      console.error("Login failed:", err);
+      setError(err.message || "Email hoặc mật khẩu không đúng.");
+    } finally {
+      setLoading(false);
     }
-
-    const currentUser = {
-      id: account.id,
-      name: account.name,
-      email: account.email,
-      role: account.role,
-      type: account.type,
-    };
-
-    localStorage.setItem("currentUser", JSON.stringify(currentUser));
-    localStorage.setItem("user", JSON.stringify(currentUser));
-    localStorage.setItem("isLoggedIn", "true");
-
-    if (account.type === "admin") {
-      localStorage.setItem("isAdmin", "true");
-      localStorage.setItem("ptitblog_admin_token", "mock_admin_token");
-      navigate("/admin");
-      return;
-    }
-
-    localStorage.setItem("isAdmin", "false");
-    localStorage.removeItem("ptitblog_admin_token");
-    navigate(redirectPath === "/" ? "/profile" : redirectPath);
   };
 
   return (
@@ -156,9 +192,10 @@ const UserLogin = () => {
 
             <button
               type="submit"
-              className="w-full py-3 font-medium bg-primary text-white rounded cursor-pointer hover:bg-primary/90 transition-all"
+              disabled={loading}
+              className="w-full py-3 font-medium bg-primary text-white rounded cursor-pointer hover:bg-primary/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Login
+              {loading ? "Logging in..." : "Login"}
             </button>
           </form>
 
@@ -168,14 +205,6 @@ const UserLogin = () => {
               Register
             </Link>
           </p>
-
-          <div className="mt-6 text-xs text-gray-500 bg-gray-50 border rounded p-3 leading-6">
-            <p className="font-medium text-gray-700 mb-1">Demo accounts:</p>
-            <p>Super Admin: superadmin@gmail.com / 123456</p>
-            <p>Admin: admin@gmail.com / 123456</p>
-            <p>Content Manager: content@gmail.com / 123456</p>
-            <p>Blogger: blogger@gmail.com / 123456</p>
-          </div>
         </div>
       </div>
 
