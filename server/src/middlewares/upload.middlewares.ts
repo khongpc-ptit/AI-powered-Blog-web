@@ -1,23 +1,8 @@
 import multer from 'multer'
-import fs from 'fs'
-import path from 'path'
 
-// Khởi tạo thư mục uploads nếu chưa có
-const uploadDir = path.resolve('uploads')
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true })
-}
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir)
-  },
-  filename: (req, file, cb) => {
-    // Tạo tên file duy nhất tránh trùng lặp
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9)
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname))
-  }
-})
+// Sử dụng memoryStorage thay vì diskStorage
+// File sẽ được giữ trong bộ nhớ dưới dạng Buffer để upload lên Cloudinary
+const storage = multer.memoryStorage()
 
 const upload = multer({ 
   storage,

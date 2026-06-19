@@ -34,6 +34,7 @@
     "@google/genai": "^2.9.0",
     "@types/cors": "^2.8.19",
     "bcrypt": "^6.0.0",
+    "cloudinary": "^2.10.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "eslint-config-prettier": "^10.1.8",

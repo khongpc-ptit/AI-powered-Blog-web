@@ -41,11 +41,26 @@ class AdminStaffService {
 
     const [staffs, total] = await Promise.all([
       databaseService.users
-        .find(matchCondition)
-        .project({ password: 0 })
-        .sort({ created_at: -1 })
-        .skip(skip)
-        .limit(limit)
+        .aggregate([
+          { $match: matchCondition },
+          {
+            $lookup: {
+              from: process.env.DB_ROLES_COLLECTION as string,
+              localField: 'role_id',
+              foreignField: '_id',
+              as: 'role_info'
+            }
+          },
+          {
+            $addFields: {
+              role_name: { $arrayElemAt: ['$role_info.name', 0] }
+            }
+          },
+          { $project: { password: 0, role_info: 0 ,role_id: 0 } },
+          { $sort: { created_at: -1 as const } },
+          { $skip: skip },
+          { $limit: limit }
+        ])
         .toArray(),
       databaseService.users.countDocuments(matchCondition)
     ])
