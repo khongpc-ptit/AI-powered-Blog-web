@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import { assets } from "../assets/assets";
@@ -7,10 +7,6 @@ import { authApi, saveTokens, userApi } from "../services/auth.api";
 
 const UserLogin = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const redirectPath =
-    new URLSearchParams(location.search).get("redirect") || "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,6 +77,7 @@ const UserLogin = () => {
 
       const role =
         currentUser.role?.name ||
+        currentUser.role?.role_name ||
         currentUser.role_name ||
         currentUser.role ||
         "user";
@@ -105,20 +102,19 @@ const UserLogin = () => {
       localStorage.setItem("user", JSON.stringify(userToSave));
       localStorage.setItem("isLoggedIn", "true");
 
+      localStorage.setItem("isAdmin", userType === "admin" ? "true" : "false");
+
       if (userType === "admin") {
-        localStorage.setItem("isAdmin", "true");
         localStorage.setItem(
           "ptitblog_admin_token",
           accessToken || "admin_token",
         );
-        navigate("/admin");
-        return;
+      } else {
+        localStorage.removeItem("ptitblog_admin_token");
       }
 
-      localStorage.setItem("isAdmin", "false");
-      localStorage.removeItem("ptitblog_admin_token");
-
-      navigate(redirectPath === "/" ? "/profile" : redirectPath);
+      // Login xong luôn về trang chủ và reload để Navbar/AuthContext cập nhật user
+      window.location.href = "/";
     } catch (err) {
       console.error("Login failed:", err);
       setError(err.message || "Email hoặc mật khẩu không đúng.");
