@@ -29,32 +29,17 @@ const handleResponse = async (response) => {
   return data;
 };
 
-const getAuthHeaders = () => {
-  const accessToken = localStorage.getItem("accessToken");
-
-  const headers = {
-    "Content-Type": "application/json",
-  };
-
-  if (
-    accessToken &&
-    accessToken !== "null" &&
-    accessToken !== "undefined" &&
-    accessToken.split(".").length === 3
-  ) {
-    headers.Authorization = `Bearer ${accessToken}`;
-  }
-
-  return headers;
-};
-
 export const roleApi = {
-  // 1) Lấy danh sách tất cả quyền
+  // 1) Lấy danh sách tất cả quyền trong hệ thống
   // GET /api/admin/permissions
   getPermissions: async () => {
+    const accessToken = localStorage.getItem("accessToken");
+
     const response = await fetch(`${API_BASE_URL}/admin/permissions`, {
       method: "GET",
-      headers: getAuthHeaders(),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
 
     return handleResponse(response);
@@ -63,9 +48,13 @@ export const roleApi = {
   // 2) Lấy danh sách tất cả role
   // GET /api/admin/roles
   getRoles: async () => {
+    const accessToken = localStorage.getItem("accessToken");
+
     const response = await fetch(`${API_BASE_URL}/admin/roles`, {
       method: "GET",
-      headers: getAuthHeaders(),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
 
     return handleResponse(response);
@@ -74,9 +63,14 @@ export const roleApi = {
   // 3) Tạo role mới
   // POST /api/admin/roles
   createRole: async ({ name, description = "", permissions = [] }) => {
+    const accessToken = localStorage.getItem("accessToken");
+
     const response = await fetch(`${API_BASE_URL}/admin/roles`, {
       method: "POST",
-      headers: getAuthHeaders(),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: JSON.stringify({
         name,
         description,
@@ -90,11 +84,16 @@ export const roleApi = {
   // 4) Cập nhật quyền cho role
   // PATCH /api/admin/roles/:id/permissions
   updateRolePermissions: async (id, permissions = []) => {
+    const accessToken = localStorage.getItem("accessToken");
+
     const response = await fetch(
       `${API_BASE_URL}/admin/roles/${id}/permissions`,
       {
         method: "PATCH",
-        headers: getAuthHeaders(),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
           permissions,
         }),
@@ -106,11 +105,15 @@ export const roleApi = {
 
   // 5) Xóa role
   // DELETE /api/admin/roles/:id
-  // Lưu ý: backend phải có route này thì mới chạy được
+  // Backend phải có route này thì mới chạy được
   deleteRole: async (id) => {
+    const accessToken = localStorage.getItem("accessToken");
+
     const response = await fetch(`${API_BASE_URL}/admin/roles/${id}`, {
       method: "DELETE",
-      headers: getAuthHeaders(),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
 
     return handleResponse(response);

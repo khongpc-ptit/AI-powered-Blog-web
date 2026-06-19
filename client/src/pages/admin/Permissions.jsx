@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { roleApi } from "../../services/role.api";
+import { staffApi } from "../../services/staff.api";
 
 const Permissions = () => {
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
-  const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [staffs, setStaffs] = useState([]);
 
+  const [selectedRoleId, setSelectedRoleId] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState([]);
 
   const [loading, setLoading] = useState(false);
@@ -45,6 +47,10 @@ const Permissions = () => {
   };
 
   const getErrorMessage = (err) => {
+    if (err?.status === 400) {
+      return err.message || "Yêu cầu không hợp lệ.";
+    }
+
     if (err?.status === 401) {
       return err.message || "Bạn chưa đăng nhập hoặc token không hợp lệ.";
     }
@@ -53,12 +59,12 @@ const Permissions = () => {
       return err.message || "Bạn không có quyền thực hiện thao tác này.";
     }
 
-    if (err?.status === 409) {
-      return err.message || "Role name already exists.";
+    if (err?.status === 404) {
+      return err.message || "Role không tồn tại hoặc API xóa role chưa có.";
     }
 
-    if (err?.status === 404) {
-      return err.message || "Role not found.";
+    if (err?.status === 409) {
+      return err.message || "Role này đang được sử dụng, không thể xóa.";
     }
 
     if (err?.status === 422) {
@@ -68,6 +74,10 @@ const Permissions = () => {
       }
 
       return err.message || "Dữ liệu không hợp lệ.";
+    }
+
+    if (err?.status === 500) {
+      return err.message || "Lỗi server.";
     }
 
     if (err?.errors) {
@@ -87,6 +97,16 @@ const Permissions = () => {
       .join(" ");
   };
 
+  const getRoleIdValue = (roleId) => {
+    if (!roleId) return "";
+
+    if (typeof roleId === "object") {
+      return roleId._id || "";
+    }
+
+    return roleId;
+  };
+
   const isUserRole = (role) => {
     return role?.name?.toLowerCase() === "user";
   };
@@ -95,6 +115,17 @@ const Permissions = () => {
     const roleName = role?.name?.toLowerCase();
 
     return roleName === "super_admin" || roleName === "super admin";
+  };
+
+  const getRoleUsageCount = (roleId) => {
+    return staffs.filter((staff) => getRoleIdValue(staff.role_id) === roleId)
+      .length;
+  };
+
+  const isRoleInUse = (role) => {
+    if (!role?._id) return false;
+
+    return getRoleUsageCount(role._id) > 0;
   };
 
   const selectedRole = useMemo(() => {
@@ -166,6 +197,7 @@ const Permissions = () => {
 
   const fetchPermissions = async () => {
     const data = await roleApi.getPermissions();
+
     setPermissions(data.result || []);
   };
 
@@ -174,7 +206,6 @@ const Permissions = () => {
 
     const roleList = data.result || [];
 
-    // Bỏ USER khỏi frontend
     const roleListWithoutUser = roleList.filter((role) => !isUserRole(role));
 
     setRoles(roleListWithoutUser);
@@ -195,12 +226,22 @@ const Permissions = () => {
     }
   };
 
+  const fetchStaffs = async () => {
+    const data = await staffApi.getStaffs({
+      page: 1,
+      limit: 1000,
+      search: "",
+    });
+
+    setStaffs(data.result || []);
+  };
+
   const fetchPageData = async () => {
     try {
       setLoading(true);
       clearMessage();
 
-      await Promise.all([fetchPermissions(), fetchRoles()]);
+      await Promise.all([fetchPermissions(), fetchRoles(), fetchStaffs()]);
     } catch (err) {
       showMessage("error", getErrorMessage(err));
     } finally {
@@ -217,6 +258,7 @@ const Permissions = () => {
       setSelectedPermissions([]);
       return;
     }
+  };
 
     setSelectedPermissions(selectedRole.permissions || []);
   }, [selectedRole]);
@@ -285,8 +327,20 @@ const Permissions = () => {
   const handleDeleteRole = (role) => {
     if (!role) return;
 
+    clearMessage();
+
     if (isSuperAdminRole(role)) {
       showMessage("error", "Không thể xóa Super Admin.");
+      return;
+    }
+
+    if (isRoleInUse(role)) {
+      showMessage(
+        "error",
+        `Role "${formatRoleName(role.name)}" đang có ${getRoleUsageCount(
+          role._id,
+        )} tài khoản sử dụng, không thể xóa.`,
+      );
       return;
     }
 
@@ -296,31 +350,39 @@ const Permissions = () => {
   const confirmDeleteRole = async () => {
     if (!deleteConfirmRole) return;
 
+    if (isSuperAdminRole(deleteConfirmRole)) {
+      showMessage("error", "Không thể xóa Super Admin.");
+      setDeleteConfirmRole(null);
+      return;
+    }
+
+    if (isRoleInUse(deleteConfirmRole)) {
+      showMessage(
+        "error",
+        `Role "${formatRoleName(
+          deleteConfirmRole.name,
+        )}" đang có tài khoản sử dụng, không thể xóa.`,
+      );
+      setDeleteConfirmRole(null);
+      return;
+    }
+
     try {
       setDeletingRoleId(deleteConfirmRole._id);
       clearMessage();
 
       await roleApi.deleteRole(deleteConfirmRole._id);
 
-      const rolesData = await roleApi.getRoles();
-      const roleList = rolesData.result || [];
-      const roleListWithoutUser = roleList.filter((item) => !isUserRole(item));
+      const deletedRoleName = deleteConfirmRole.name;
 
-      setRoles(roleListWithoutUser);
+      setDeleteConfirmRole(null);
 
-      if (selectedRoleId === deleteConfirmRole._id) {
-        const nextRole = roleListWithoutUser[0];
-
-        setSelectedRoleId(nextRole?._id || "");
-        setSelectedPermissions(nextRole?.permissions || []);
-      }
+      await Promise.all([fetchRoles(), fetchStaffs()]);
 
       showMessage(
         "success",
-        `Đã xóa role "${formatRoleName(deleteConfirmRole.name)}" thành công.`,
+        `Đã xóa role "${formatRoleName(deletedRoleName)}" thành công.`,
       );
-
-      setDeleteConfirmRole(null);
     } catch (err) {
       showMessage("error", getErrorMessage(err));
     } finally {
@@ -395,11 +457,11 @@ const Permissions = () => {
 
       closeCreateModal();
 
+      await fetchRoles();
+
       const rolesData = await roleApi.getRoles();
       const roleList = rolesData.result || [];
       const roleListWithoutUser = roleList.filter((role) => !isUserRole(role));
-
-      setRoles(roleListWithoutUser);
 
       const createdRole = roleListWithoutUser.find(
         (role) => role.name.toLowerCase() === payload.name.toLowerCase(),
@@ -410,7 +472,10 @@ const Permissions = () => {
         setSelectedPermissions(createdRole.permissions || []);
       }
 
-      showMessage("success", `Đã tạo role "${payload.name}" thành công.`);
+      showMessage(
+        "success",
+        `Đã tạo role "${formatRoleName(payload.name)}" thành công.`,
+      );
     } catch (err) {
       showMessage("error", getErrorMessage(err));
     }
@@ -490,7 +555,10 @@ const Permissions = () => {
                 roles.map((role) => {
                   const isActive = selectedRoleId === role._id;
                   const isSuper = isSuperAdminRole(role);
+                  const roleUsed = isRoleInUse(role);
+                  const usageCount = getRoleUsageCount(role._id);
                   const isDeleting = deletingRoleId === role._id;
+                  const canDelete = !isSuper && !roleUsed;
 
                   return (
                     <button
@@ -521,9 +589,15 @@ const Permissions = () => {
                             </span>
                           )}
 
-                          {!isSuper && (
+                          {!isSuper && roleUsed && (
+                            <span className="text-[10px] px-2 py-1 rounded-full bg-red-50 text-red-600 border border-red-100">
+                              IN USE
+                            </span>
+                          )}
+
+                          {!isSuper && !roleUsed && (
                             <span className="text-[10px] px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                              EDITABLE
+                              CAN DELETE
                             </span>
                           )}
                         </div>
@@ -534,9 +608,17 @@ const Permissions = () => {
                       </p>
 
                       <div className="flex items-center justify-between mt-3">
-                        <p className="text-xs text-primary font-medium">
-                          {countPermissionsByRole(role)} permissions
-                        </p>
+                        <div>
+                          <p className="text-xs text-primary font-medium">
+                            {countPermissionsByRole(role)} permissions
+                          </p>
+
+                          {roleUsed && (
+                            <p className="text-xs text-red-400 mt-1">
+                              {usageCount} account đang sử dụng role này
+                            </p>
+                          )}
+                        </div>
 
                         {!isSuper && (
                           <span
@@ -545,9 +627,9 @@ const Permissions = () => {
                               handleDeleteRole(role);
                             }}
                             className={`text-xs ${
-                              isDeleting
-                                ? "text-gray-400"
-                                : "text-red-500 hover:underline"
+                              canDelete
+                                ? "text-red-500 hover:underline cursor-pointer"
+                                : "text-gray-400 cursor-not-allowed"
                             }`}
                           >
                             {isDeleting ? "Deleting..." : "Delete"}
@@ -737,7 +819,7 @@ const Permissions = () => {
                   name="name"
                   value={newRoleData.name}
                   onChange={handleCreateInputChange}
-                  placeholder="VD: Editor"
+                  placeholder="VD: editor"
                   autoFocus
                   className="w-full mt-1 px-3 py-2 border border-gray-300 rounded outline-none focus:border-primary"
                   required

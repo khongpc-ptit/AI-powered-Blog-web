@@ -53,6 +53,10 @@ const AccountAdmin = () => {
   };
 
   const getErrorMessage = (err) => {
+    if (err?.status === 400) {
+      return err.message || "Yêu cầu không hợp lệ.";
+    }
+
     if (err?.status === 401) {
       return err.message || "Bạn chưa đăng nhập hoặc token không hợp lệ.";
     }
@@ -65,6 +69,10 @@ const AccountAdmin = () => {
       return err.message || "Không tìm thấy nhân sự hoặc role.";
     }
 
+    if (err?.status === 409) {
+      return err.message || "Dữ liệu đã tồn tại.";
+    }
+
     if (err?.status === 422) {
       if (err.errors) {
         const firstError = Object.values(err.errors)[0];
@@ -74,6 +82,10 @@ const AccountAdmin = () => {
       return err.message || "Dữ liệu không hợp lệ.";
     }
 
+    if (err?.status === 500) {
+      return err.message || "Lỗi server.";
+    }
+
     if (err?.errors) {
       const firstError = Object.values(err.errors)[0];
       return firstError?.msg || err.message || "Dữ liệu không hợp lệ.";
@@ -81,68 +93,6 @@ const AccountAdmin = () => {
 
     return err?.message || "Có lỗi xảy ra.";
   };
-
-  const fetchStaffs = async () => {
-    try {
-      setLoading(true);
-
-      const data = await staffApi.getStaffs({
-        page: 1,
-        limit: 100,
-        search: "",
-      });
-
-      setStaffs(data.result || []);
-
-      if (data.pagination) {
-        setPagination(data.pagination);
-      }
-    } catch (err) {
-      showMessage("error", getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchRoles = async () => {
-    try {
-      const data = await roleApi.getRoles();
-      setRoles(data.result || []);
-    } catch (err) {
-      showMessage("error", err.message || "Không thể lấy danh sách role.");
-    }
-  };
-
-  const fetchPageData = async () => {
-    try {
-      setLoading(true);
-      clearMessage();
-
-      const [staffData, roleData] = await Promise.all([
-        staffApi.getStaffs({
-          page: 1,
-          limit: 100,
-          search: "",
-        }),
-        roleApi.getRoles(),
-      ]);
-
-      setStaffs(staffData.result || []);
-      setRoles(roleData.result || []);
-
-      if (staffData.pagination) {
-        setPagination(staffData.pagination);
-      }
-    } catch (err) {
-      showMessage("error", getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchPageData();
-  }, []);
 
   const formatDateForTable = (dateValue) => {
     if (!dateValue) return "N/A";
@@ -157,36 +107,76 @@ const AccountAdmin = () => {
   const formatDateToISO = (dateValue) => {
     if (!dateValue) return "";
 
-    return new Date(dateValue).toISOString();
+    const date = new Date(dateValue);
+
+    if (Number.isNaN(date.getTime())) return "";
+
+    return date.toISOString();
   };
 
-  const getRoleIdValue = (roleId) => {
-    if (!roleId) return "";
+  const formatRoleName = (roleName) => {
+    if (!roleName || roleName === "N/A") return "N/A";
 
-    if (typeof roleId === "object") {
-      return roleId._id || "";
-    }
-
-    return roleId;
+    return roleName
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   };
 
-  const getRoleName = (roleId) => {
-    if (!roleId) return "N/A";
+  const getRoleIdValue = (roleValue) => {
+    if (!roleValue) return "";
 
-    if (typeof roleId === "object" && roleId.name) {
-      return roleId.name;
+    if (typeof roleValue === "object") {
+      return (
+        roleValue._id || roleValue.id || roleValue.$oid || roleValue.value || ""
+      );
     }
 
-    const id = getRoleIdValue(roleId);
-    const role = roles.find((item) => item._id === id);
+    return roleValue;
+  };
+
+  const getStaffRoleId = (staff) => {
+    return getRoleIdValue(
+      staff?.role_id ||
+        staff?.roleId ||
+        staff?.role ||
+        staff?.role_id?._id ||
+        staff?.role?._id,
+    );
+  };
+
+  const getStaffRoleName = (staff) => {
+    if (!staff) return "N/A";
+
+    if (staff.role_name) return staff.role_name;
+
+    if (typeof staff.role_id === "object" && staff.role_id?.name) {
+      return staff.role_id.name;
+    }
+
+    if (typeof staff.role === "object" && staff.role?.name) {
+      return staff.role.name;
+    }
+
+    if (typeof staff.role === "string") {
+      const roleByName = roles.find(
+        (role) => role.name?.toLowerCase() === staff.role.toLowerCase(),
+      );
+
+      if (roleByName) return roleByName.name;
+    }
+
+    const roleId = getStaffRoleId(staff);
+
+    const role = roles.find((item) => {
+      return getRoleIdValue(item._id) === roleId;
+    });
 
     return role ? role.name : "N/A";
   };
 
   const isUserRole = (role) => {
-    const roleName = role?.name?.toLowerCase();
-
-    return roleName === "user";
+    return role?.name?.toLowerCase() === "user";
   };
 
   const isSuperAdminRoleName = (roleName) => {
@@ -200,9 +190,7 @@ const AccountAdmin = () => {
   };
 
   const isSuperAdminStaff = (staff) => {
-    const roleName = getRoleName(staff?.role_id);
-
-    return isSuperAdminRoleName(roleName);
+    return isSuperAdminRoleName(getStaffRoleName(staff));
   };
 
   const getAvailableRolesForCreate = () => {
@@ -234,14 +222,58 @@ const AccountAdmin = () => {
     return "bg-gray-100 text-gray-600";
   };
 
-  const formatRoleName = (roleName) => {
-    if (!roleName || roleName === "N/A") return "N/A";
+  const fetchPageData = async () => {
+    try {
+      setLoading(true);
+      clearMessage();
 
-    return roleName
-      .split("_")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
+      const [staffData, roleData] = await Promise.all([
+        staffApi.getStaffs({
+          page: 1,
+          limit: 100,
+          search: "",
+        }),
+        roleApi.getRoles(),
+      ]);
+
+      setStaffs(staffData.result || []);
+      setRoles(roleData.result || []);
+
+      if (staffData.pagination) {
+        setPagination(staffData.pagination);
+      }
+    } catch (err) {
+      showMessage("error", getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const fetchStaffs = async () => {
+    try {
+      setLoading(true);
+
+      const data = await staffApi.getStaffs({
+        page: 1,
+        limit: 100,
+        search: "",
+      });
+
+      setStaffs(data.result || []);
+
+      if (data.pagination) {
+        setPagination(data.pagination);
+      }
+    } catch (err) {
+      showMessage("error", getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPageData();
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -279,13 +311,13 @@ const AccountAdmin = () => {
 
     const selectedRole = roles.find((role) => role._id === formData.role_id);
 
-    if (selectedRole && isSuperAdminRole(selectedRole)) {
-      showMessage("error", "Không thể tạo thêm tài khoản Super Admin.");
+    if (selectedRole && isUserRole(selectedRole)) {
+      showMessage("error", "Không thể tạo tài khoản staff với role USER.");
       return;
     }
 
-    if (selectedRole && isUserRole(selectedRole)) {
-      showMessage("error", "Không thể tạo tài khoản staff với role USER.");
+    if (selectedRole && isSuperAdminRole(selectedRole)) {
+      showMessage("error", "Không thể tạo thêm tài khoản Super Admin.");
       return;
     }
 
@@ -341,6 +373,7 @@ const AccountAdmin = () => {
 
   const openPasswordModal = (staff) => {
     setSelectedPasswordStaff(staff);
+
     setPasswordData({
       new_password: "",
       confirm_new_password: "",
@@ -349,6 +382,7 @@ const AccountAdmin = () => {
 
   const closePasswordModal = () => {
     setSelectedPasswordStaff(null);
+
     setPasswordData({
       new_password: "",
       confirm_new_password: "",
@@ -363,6 +397,11 @@ const AccountAdmin = () => {
 
     if (!passwordData.new_password) {
       showMessage("error", "Vui lòng nhập mật khẩu mới.");
+      return;
+    }
+
+    if (passwordData.new_password.length < 6) {
+      showMessage("error", "Mật khẩu mới phải có ít nhất 6 ký tự.");
       return;
     }
 
@@ -428,6 +467,10 @@ const AccountAdmin = () => {
   const handleActionChange = (action, staff) => {
     if (!action) return;
 
+    if (action === "detail") {
+      openDetailModal(staff);
+    }
+
     if (action === "reset-password") {
       openPasswordModal(staff);
     }
@@ -435,15 +478,11 @@ const AccountAdmin = () => {
     if (action === "delete") {
       handleDeleteClick(staff);
     }
-
-    if (action === "detail") {
-      openDetailModal(staff);
-    }
   };
 
   const tableStaffs = useMemo(() => {
     return staffs.map((staff, index) => {
-      const roleName = getRoleName(staff.role_id);
+      const roleName = getStaffRoleName(staff);
 
       return {
         ...staff,
@@ -453,6 +492,16 @@ const AccountAdmin = () => {
       };
     });
   }, [staffs, roles]);
+
+  const roleFilterOptions = useMemo(() => {
+    return roles
+      .filter((role) => !isUserRole(role))
+      .map((role) => ({
+        value: role.name,
+        label: formatRoleName(role.name),
+        filterFn: (data) => data.filter((item) => item.role_name === role.name),
+      }));
+  }, [roles]);
 
   const accountColumns = [
     {
@@ -681,9 +730,14 @@ const AccountAdmin = () => {
 
             <button
               type="submit"
-              className="mt-2 w-full py-2 bg-primary text-white rounded cursor-pointer hover:bg-primary/90 transition-all"
+              disabled={loading}
+              className={`mt-2 w-full py-2 text-white rounded transition-all ${
+                loading
+                  ? "bg-gray-300 cursor-not-allowed"
+                  : "bg-primary cursor-pointer hover:bg-primary/90"
+              }`}
             >
-              Add Account
+              {loading ? "Loading..." : "Add Account"}
             </button>
           </div>
         </form>
@@ -707,6 +761,8 @@ const AccountAdmin = () => {
               "role_label",
               "location",
             ]}
+            filterLabel="Role"
+            filterOptions={roleFilterOptions}
             defaultSortField="created_at"
             defaultSortOrder="desc"
             itemsPerPageOptions={[5, 10, 20]}
@@ -743,13 +799,35 @@ const AccountAdmin = () => {
               </div>
 
               <div className="flex justify-between gap-4 border-b pb-2">
+                <span className="text-gray-400">Password</span>
+
+                <div className="flex items-center gap-3">
+                  <span className="font-medium text-gray-700 text-right">
+                    ********
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const staff = selectedDetailStaff;
+                      closeDetailModal();
+                      openPasswordModal(staff);
+                    }}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex justify-between gap-4 border-b pb-2">
                 <span className="text-gray-400">Role</span>
                 <span
                   className={`px-3 py-1 rounded-full text-xs ${getRoleStyle(
-                    getRoleName(selectedDetailStaff.role_id),
+                    getStaffRoleName(selectedDetailStaff),
                   )}`}
                 >
-                  {formatRoleName(getRoleName(selectedDetailStaff.role_id))}
+                  {formatRoleName(getStaffRoleName(selectedDetailStaff))}
                 </span>
               </div>
 
