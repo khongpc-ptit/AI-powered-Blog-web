@@ -14,7 +14,6 @@ const blogRouter = express.Router()
 
 
 
-
 blogRouter.get('/categories', wrapRequestHandler(getAllCategoriesController))
 blogRouter.get('/', wrapRequestHandler(getAllBlogsController))
 blogRouter.get('/:id', wrapRequestHandler(getBlogByIdController))
