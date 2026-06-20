@@ -10,6 +10,10 @@ interface UserType {
   date_of_birth: Date
   role_id: ObjectId
   location?: string //optional
+  verify?: UserVerifyStatus
+  email_verify_token?: string
+  email_verify_expires_at?: Date | null
+  email_verified_at?: Date | null
   created_at?: Date
   updated_at?: Date
 }
@@ -25,6 +29,11 @@ class User {
   updated_at: Date
   role_id: ObjectId
   location: string //optional
+  verify: UserVerifyStatus
+  email_verify_token: string
+  email_verify_expires_at: Date | null
+  email_verified_at: Date | null
+
   constructor(user: UserType) {
     const dateNow = new Date()
     this._id = user._id
@@ -36,6 +45,10 @@ class User {
     this.updated_at = user.updated_at || dateNow
     this.role_id = user.role_id
     this.location = user.location || ''
+    this.verify = user.verify ?? UserVerifyStatus.Unverified
+    this.email_verify_token = user.email_verify_token || ''
+    this.email_verify_expires_at = user.email_verify_expires_at || null
+    this.email_verified_at = user.email_verified_at || null
   }
 }
 export default User

@@ -36,7 +36,7 @@ const UserRegister = () => {
         confirm_password: formData.confirm_password,
         date_of_birth: formData.date_of_birth,
       });
-      navigate("/profile", { replace: true });
+      navigate("/check-email", { state: { email: formData.email } });
     } catch (err) {
       if (err.errors) {
         const fieldErrors = {};

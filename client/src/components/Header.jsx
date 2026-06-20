@@ -21,13 +21,11 @@ const Header = () => {
           <img src={assets.star_icon} className="w-2.5" alt="" />
         </div>
         <h1 className="text-3xl sm:text-6xl font-semibold sm:leading-16 text-gray-700">
-          Your Own <span className="text-primary">Blogging</span> <br />
-          Platform.
+          Welcome to My  <span className="text-primary">Digital Garden</span> <br />
+
         </h1>
         <p className="my-6 sm:my-8 max-w-2xl m-auto max-sm:text-xs text-gray-500">
-          This is your space to think out loud, to share what matters, and to
-          write without filters. Whether it's one word or a thousand, your story
-          starts right here.
+          A collection of thoughts, ideas, and experiences. Dive into stories about technology, lifestyle, and everything in between.
         </p>
       </div>
       <img

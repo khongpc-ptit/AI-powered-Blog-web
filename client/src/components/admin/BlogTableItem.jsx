@@ -23,7 +23,6 @@ const BlogTableItem = ({ blog, fetchBlogs, index }) => {
   };
 
   const handleChangeStatus = () => {
-    // Sau này nối API backend thì gọi API publish/unpublish ở đây
     alert(blog.isPublished ? "Unpublish blog" : "Publish blog");
   };
 
@@ -34,7 +33,6 @@ const BlogTableItem = ({ blog, fetchBlogs, index }) => {
 
     if (!confirmDelete) return;
 
-    // Sau này nối API backend thì gọi API delete ở đây
     alert("Delete blog");
 
     if (fetchBlogs) {
