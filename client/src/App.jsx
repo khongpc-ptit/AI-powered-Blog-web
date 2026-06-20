@@ -8,6 +8,8 @@ import Blog from "./pages/Blog";
 import UserLogin from "./pages/UserLogin";
 import UserRegister from "./pages/user/UserRegister";
 import UserProfile from "./pages/user/UserProfile";
+import CheckEmail from "./pages/user/CheckEmail";
+import VerifyEmail from "./pages/user/VerifyEmail";
 
 import AdminLogin from "./pages/admin/AdminLogin";
 
@@ -33,6 +35,8 @@ const App = () => {
       {/* Public routes */}
       <Route path="/" element={<Home />} />
       <Route path="/blogs/:id" element={<Blog />} />
+      <Route path="/check-email" element={<CheckEmail />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
 
       {/* Auth routes */}
       <Route path="/login" element={<UserLogin />} />
