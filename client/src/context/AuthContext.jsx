@@ -36,11 +36,6 @@ export const AuthProvider = ({ children }) => {
 
   const register = async ({ name, email, password, confirm_password, date_of_birth }) => {
     const data = await authApi.register({ name, email, password, confirm_password, date_of_birth });
-    saveTokens({
-      accessToken: data.result.accessToken,
-      refreshToken: data.result.refreshToken,
-    });
-    await refreshUserProfile();
     return data;
   };
 

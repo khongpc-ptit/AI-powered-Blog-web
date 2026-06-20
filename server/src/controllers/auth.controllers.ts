@@ -12,7 +12,7 @@ import { USER_MESSAGES } from '~/constants/messages'
 
 export const registerController = async (req: Request<ParamsDictionary, any, UserReqRegister>, res: Response) => {
   const result = await authService.registerUser(req.body)
-  return res.json({ message: 'Đăng ký thành công', result })
+  return res.json(result)
 }
 export const loginController = async (req: Request, res: Response) => {
   const user = req.user as User // đã thêm ở file type.d.ts và user được truyền ở checkschema qua
@@ -30,5 +30,31 @@ export const refreshAccessTokenController = async (
 ) => {
   const { user_id } = req.decoded_refresh_token as TokenPayload
   const result = await authService.refreshAccessToken(user_id)
+  return res.json(result)
+}
+
+export const verifyEmailController = async (req: Request, res: Response) => {
+  const { token } = req.body
+
+  if (!token) {
+    return res.status(400).json({
+      message: 'Thiếu token xác thực email'
+    })
+  }
+
+  const result = await authService.verifyEmail(token)
+  return res.json(result)
+}
+
+export const resendVerificationController = async (req: Request, res: Response) => {
+  const { email } = req.body
+
+  if (!email) {
+    return res.status(400).json({
+      message: 'Thiếu email để gửi lại xác thực'
+    })
+  }
+
+  const result = await authService.resendVerificationEmail(email)
   return res.json(result)
 }

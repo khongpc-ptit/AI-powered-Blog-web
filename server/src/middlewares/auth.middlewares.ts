@@ -9,6 +9,8 @@ import HTTP_STATUS from '~/constants/httpStatus'
 import { comparePassword } from '~/utils/bcrypt'
 import { verifyToken } from '~/utils/jwt'
 import { JsonWebTokenError } from 'jsonwebtoken'
+import { UserVerifyStatus } from '~/constants/enum'
+
 export const registerValidator = validate(
   checkSchema(
     {
@@ -160,6 +162,12 @@ export const loginValidator = validate(
               throw new errorWithStatus({
                 message: USER_MESSAGES.EMAIL_OR_PASSWORD_INVALID,
                 status: HTTP_STATUS.UNAUTHORIZED
+              })
+            }
+            if (user.verify !== undefined && user.verify !== UserVerifyStatus.Verified) {
+              throw new errorWithStatus({
+                message: 'Vui lòng xác thực email trước khi đăng nhập',
+                status: HTTP_STATUS.FORBIDDEN
               })
             }
             ;(req as Request).user = user
