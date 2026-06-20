@@ -1,44 +1,43 @@
 import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
-import { useAuth } from "../context/AuthContext";
-import { ADMIN_ROLE_CODES } from "../constants/rbac";
 
-const AdminProtectedRoute = () => {
-  const { user, isAuthenticated, loading } = useAuth();
-
-  if (loading) {
-    return null;
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  const normalizedRole = user?.role || user?.role_id || "";
-  const normalizedRoleCode = normalizeRoleCode(normalizedRole);
-
-  if (!ADMIN_ROLE_CODES.includes(normalizedRoleCode)) {
-    return <Navigate to="/" replace />;
-  }
-
-  return <Outlet />;
+const isValidJwt = (token) => {
+  return (
+    token &&
+    token !== "null" &&
+    token !== "undefined" &&
+    token.split(".").length === 3
+  );
 };
 
-const normalizeRoleCode = (roleCode) => {
-  if (!roleCode) return "";
+const AdminProtectedRoute = () => {
+  const accessToken = localStorage.getItem("accessToken");
+  const isAdmin = localStorage.getItem("isAdmin");
+  const isLoggedIn = localStorage.getItem("isLoggedIn");
 
-  const role = String(roleCode).trim().toLowerCase();
+  const hasValidToken = isValidJwt(accessToken);
 
-  if (role === "superadmin" || role === "super_admin" || role === "super-admin") {
-    return "super_admin";
+  console.log("ADMIN_PROTECTED_CHECK:", {
+    accessToken,
+    isAdmin,
+    isLoggedIn,
+    hasValidToken,
+  });
+
+  if (!hasValidToken || isLoggedIn !== "true") {
+    console.log(
+      "ADMIN_PROTECTED_REDIRECT: /adminlogin - missing valid token/login",
+    );
+    return <Navigate to="/adminlogin" replace />;
   }
-  if (role === "admin") return "admin";
-  if (role === "contentmanager" || role === "content_manager" || role === "content-manager") {
-    return "content_manager";
-  }
-  if (role === "blogger") return "blogger";
 
-  return role;
+  if (isAdmin !== "true") {
+    console.log("ADMIN_PROTECTED_REDIRECT: /adminlogin - not admin");
+    return <Navigate to="/adminlogin" replace />;
+  }
+
+  console.log("ADMIN_PROTECTED_ALLOW: /admin");
+  return <Outlet />;
 };
 
 export default AdminProtectedRoute;

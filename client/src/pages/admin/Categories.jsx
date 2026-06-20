@@ -1,139 +1,145 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import DataTable from "../../components/DataTable";
 import { assets } from "../../assets/assets";
+import { categoryApi } from "../../services/category.api";
 
 const Categories = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
+
   const [showModal, setShowModal] = useState(false);
-  const [modalMode, setModalMode] = useState("add"); // 'add' | 'edit'
+  const [modalMode, setModalMode] = useState("add"); // "add" | "edit"
   const [editingCategory, setEditingCategory] = useState(null);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    status: "active",
   });
 
-  // Mock data - sau này thay bằng API
-  const mockCategories = [
-    {
-      _id: "1",
-      name: "Technology",
-      description: "Các bài viết về công nghệ và lập trình",
-      status: "active",
-      createdAt: "2025-01-15T10:00:00.000Z",
-    },
-    {
-      _id: "2",
-      name: "Startup",
-      description: "Khởi nghiệp và kinh doanh",
-      status: "active",
-      createdAt: "2025-01-16T11:30:00.000Z",
-    },
-    {
-      _id: "3",
-      name: "Lifestyle",
-      description: "Phong cách sống và du lịch",
-      status: "active",
-      createdAt: "2025-02-01T09:00:00.000Z",
-    },
-    {
-      _id: "4",
-      name: "Finance",
-      description: "Tài chính và đầu tư",
-      status: "active",
-      createdAt: "2025-02-10T14:00:00.000Z",
-    },
-    {
-      _id: "5",
-      name: "Health",
-      description: "Sức khỏe và thể thao",
-      status: "inactive",
-      createdAt: "2025-03-05T08:00:00.000Z",
-    },
-  ];
+  const clearNotify = () => {
+    setMessage("");
+    setError("");
+  };
 
-  const blog_data = [
-    { _id: "1", category: "Technology" },
-    { _id: "2", category: "Technology" },
-    { _id: "3", category: "Technology" },
-    { _id: "4", category: "Startup" },
-    { _id: "5", category: "Startup" },
-    { _id: "6", category: "Lifestyle" },
-    { _id: "7", category: "Lifestyle" },
-    { _id: "8", category: "Lifestyle" },
-    { _id: "9", category: "Finance" },
-    { _id: "10", category: "Finance" },
-    { _id: "11", category: "Finance" },
-    { _id: "12", category: "Finance" },
-  ];
+  const getErrorMessage = (err) => {
+    if (err?.status === 409) {
+      return "Tên danh mục đã tồn tại";
+    }
+
+    if (err?.status === 404) {
+      return "Không tìm thấy danh mục";
+    }
+
+    if (err?.errors) {
+      const firstError = Object.values(err.errors)[0];
+      return firstError?.msg || err.message || "Dữ liệu không hợp lệ";
+    }
+
+    return err?.message || "Có lỗi xảy ra";
+  };
 
   const fetchCategories = async () => {
-    setLoading(true);
-    setCategories(mockCategories);
-    setLoading(false);
+    try {
+      setLoading(true);
+      clearNotify();
+
+      const data = await categoryApi.getCategories();
+      setCategories(data.result || []);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchCategories();
   }, []);
 
-  const countBlogsByCategory = (categoryName) => {
-    return blog_data.filter((blog) => blog.category === categoryName).length;
-  };
-
   const handleAdd = () => {
+    clearNotify();
     setModalMode("add");
     setEditingCategory(null);
-    setFormData({ name: "", description: "", status: "active" });
+    setFormData({
+      name: "",
+      description: "",
+    });
     setShowModal(true);
   };
 
   const handleEdit = (category) => {
+    clearNotify();
     setModalMode("edit");
     setEditingCategory(category);
     setFormData({
-      name: category.name,
-      description: category.description,
-      status: category.status,
+      name: category.name || "",
+      description: category.description || "",
     });
     setShowModal(true);
   };
 
   const handleDeleteClick = (category) => {
+    clearNotify();
     setDeleteConfirm(category);
   };
 
-  const confirmDelete = () => {
-    if (deleteConfirm) {
-      setCategories((prev) => prev.filter((c) => c._id !== deleteConfirm._id));
+  const confirmDelete = async () => {
+    if (!deleteConfirm) return;
+
+    try {
+      clearNotify();
+
+      const data = await categoryApi.deleteCategory(deleteConfirm._id);
+
       setDeleteConfirm(null);
+      await fetchCategories();
+
+      setMessage(`Đã xóa danh mục: ${data.result?.name || deleteConfirm.name}`);
+    } catch (err) {
+      setError(getErrorMessage(err));
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (modalMode === "add") {
-      const newCategory = {
-        _id: Date.now().toString(),
-        name: formData.name,
-        description: formData.description,
-        status: formData.status,
-        createdAt: new Date().toISOString(),
-      };
-      setCategories((prev) => [...prev, newCategory]);
-    } else if (modalMode === "edit" && editingCategory) {
-      setCategories((prev) =>
-        prev.map((c) =>
-          c._id === editingCategory._id
-            ? { ...c, ...formData }
-            : c
-        )
-      );
+    clearNotify();
+
+    const payload = {
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+    };
+
+    if (!payload.name) {
+      setError("Tên danh mục không được để trống");
+      return;
     }
-    setShowModal(false);
+
+    try {
+      if (modalMode === "add") {
+        await categoryApi.createCategory(payload);
+        setMessage("Thêm danh mục thành công");
+      }
+
+      if (modalMode === "edit" && editingCategory) {
+        await categoryApi.updateCategory(editingCategory._id, payload);
+        setMessage("Cập nhật danh mục thành công");
+      }
+
+      setShowModal(false);
+      setEditingCategory(null);
+      setFormData({
+        name: "",
+        description: "",
+      });
+
+      await fetchCategories();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
   };
 
   const columns = [
@@ -157,43 +163,53 @@ const Categories = () => {
       header: "Description",
       sortable: false,
       render: (item) => (
-        <div className="max-w-xs truncate text-gray-600" title={item.description}>
-          {item.description}
+        <div
+          className="max-w-xs truncate text-gray-600"
+          title={item.description || ""}
+        >
+          {item.description || "No description"}
         </div>
       ),
     },
     {
-      field: "blogCount",
-      header: "Blogs",
-      sortable: true,
-      render: (item) => (
-        <span className="font-semibold text-primary">{item.blogCount}</span>
-      ),
-    },
-    {
-      field: "createdAt",
+      field: "created_at",
       header: "Created At",
       sortable: true,
       render: (item) => {
-        const date = new Date(item.createdAt);
-        return <span className="text-gray-600">{date.toLocaleDateString()}</span>;
+        const dateValue = item.created_at || item.createdAt;
+
+        if (!dateValue) {
+          return <span className="text-gray-400">N/A</span>;
+        }
+
+        const date = new Date(dateValue);
+
+        return (
+          <span className="text-gray-600">
+            {date.toLocaleDateString("vi-VN")}
+          </span>
+        );
       },
     },
     {
-      field: "status",
-      header: "Status",
+      field: "updated_at",
+      header: "Updated At",
       sortable: true,
-      render: (item) => (
-        <span
-          className={`px-2 py-1 text-xs rounded-full ${
-            item.status === "active"
-              ? "bg-green-100 text-green-600"
-              : "bg-gray-100 text-gray-600"
-          }`}
-        >
-          {item.status === "active" ? "Active" : "Inactive"}
-        </span>
-      ),
+      render: (item) => {
+        const dateValue = item.updated_at || item.updatedAt;
+
+        if (!dateValue) {
+          return <span className="text-gray-400">N/A</span>;
+        }
+
+        const date = new Date(dateValue);
+
+        return (
+          <span className="text-gray-600">
+            {date.toLocaleDateString("vi-VN")}
+          </span>
+        );
+      },
     },
     {
       field: "actions",
@@ -202,11 +218,13 @@ const Categories = () => {
       render: (item) => (
         <div className="flex items-center gap-3">
           <button
+            type="button"
             onClick={() => handleEdit(item)}
             className="border px-2 py-0.5 text-xs rounded cursor-pointer hover:bg-gray-100 transition-colors"
           >
             Edit
           </button>
+
           <img
             src={assets.cross_icon}
             onClick={() => handleDeleteClick(item)}
@@ -219,10 +237,9 @@ const Categories = () => {
   ];
 
   const tableData = useMemo(() => {
-    return categories.map((cat, index) => ({
-      ...cat,
+    return categories.map((category, index) => ({
+      ...category,
       index: index + 1,
-      blogCount: countBlogsByCategory(cat.name),
     }));
   }, [categories]);
 
@@ -231,10 +248,8 @@ const Categories = () => {
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-semibold text-gray-800">Categories</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Manage blog categories with add, edit, and delete options.
-          </p>
         </div>
+
         <button
           onClick={handleAdd}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer text-sm"
@@ -244,18 +259,29 @@ const Categories = () => {
         </button>
       </div>
 
+      {message && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-green-100 text-green-700 text-sm">
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-red-100 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+
       <DataTable
         data={tableData}
         columns={columns}
         searchPlaceholder="Search categories..."
         searchableFields={["name", "description"]}
-        defaultSortField="createdAt"
+        defaultSortField="created_at"
         defaultSortOrder="desc"
         loading={loading}
         emptyMessage="No categories found."
       />
 
-      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
@@ -263,56 +289,70 @@ const Categories = () => {
               <h3 className="text-lg font-semibold text-gray-800">
                 {modalMode === "add" ? "Add New Category" : "Edit Category"}
               </h3>
+
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
                 className="text-gray-400 hover:text-gray-600 cursor-pointer"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
+
             <form onSubmit={handleSubmit} className="p-5">
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Category Name *
                   </label>
+
                   <input
                     type="text"
                     required
                     value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        name: e.target.value,
+                      })
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                     placeholder="Enter category name"
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Description
                   </label>
+
                   <textarea
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        description: e.target.value,
+                      })
+                    }
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
                     placeholder="Enter description"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Status
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary bg-white"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
               </div>
+
               <div className="flex justify-end gap-3 mt-6">
                 <button
                   type="button"
@@ -321,6 +361,7 @@ const Categories = () => {
                 >
                   Cancel
                 </button>
+
                 <button
                   type="submit"
                   className="px-4 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
@@ -333,28 +374,46 @@ const Categories = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-sm">
             <div className="p-6 text-center">
               <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-                <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                <svg
+                  className="h-6 w-6 text-red-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">Delete Category</h3>
+
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                Delete Category
+              </h3>
+
               <p className="text-sm text-gray-600 mb-6">
-                Are you sure you want to delete "{deleteConfirm.name}"? This action cannot be undone.
+                Are you sure you want to delete "{deleteConfirm.name}"? This
+                action cannot be undone.
               </p>
+
               <div className="flex justify-center gap-3">
                 <button
+                  type="button"
                   onClick={() => setDeleteConfirm(null)}
                   className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
+
                 <button
+                  type="button"
                   onClick={confirmDelete}
                   className="px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors cursor-pointer"
                 >

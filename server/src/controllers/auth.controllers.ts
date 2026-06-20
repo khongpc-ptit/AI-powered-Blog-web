@@ -5,7 +5,7 @@ import {
   refreshAccessTokenReqBody,
   TokenPayload,
   UserReqRegister
-} from '~/models/requests/UserReqRegister'
+} from '~/models/requests/UserRegister.requests'
 import authService from '~/services/auth.services'
 import User from '~/models/schemas/User.schema'
 import { USER_MESSAGES } from '~/constants/messages'

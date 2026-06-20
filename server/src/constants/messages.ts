@@ -70,6 +70,7 @@ export const ADMIN_BLOG_MESSAGES = {
   GET_ALL_BLOGS_SUCCESS: 'Get all blogs successfully',
   CREATE_BLOG_SUCCESS: 'Create blog successfully',
   UPDATE_BLOG_SUCCESS: 'Update blog successfully',
+  DELETE_BLOG_SUCCESS: 'Delete blog successfully',
   TOGGLE_PUBLISH_SUCCESS: 'Toggle blog publish status successfully',
   PROMPT_REQUIRED: 'Prompt is required for AI generation',
   GENERATE_CONTENT_SUCCESS: 'Generate content successfully',
@@ -81,3 +82,60 @@ export const PERMISSION_MESSAGES = {
   ROLE_NOT_FOUND: 'Access Denied: Role not found',
   INSUFFICIENT_PERMISSIONS: 'Access Denied: Insufficient permissions'
 }
+
+export const ADMIN_CATEGORY_MESSAGES = {
+  GET_ALL_CATEGORIES_SUCCESS: 'Get all categories successfully',
+  CREATE_CATEGORY_SUCCESS: 'Create category successfully',
+  UPDATE_CATEGORY_SUCCESS: 'Update category successfully',
+  DELETE_CATEGORY_SUCCESS: 'Delete category successfully',
+  CATEGORY_NOT_FOUND: 'Category not found',
+  CATEGORY_NAME_REQUIRED: 'Category name is required',
+  CATEGORY_NAME_ALREADY_EXISTS: 'Category name already exists'
+}
+
+export const ADMIN_COMMENT_MESSAGES = {
+  GET_ALL_COMMENTS_SUCCESS: 'Get all comments successfully',
+  APPROVE_COMMENT_SUCCESS: 'Approve comment successfully',
+  DELETE_COMMENT_SUCCESS: 'Delete comment successfully',
+  COMMENT_NOT_FOUND: 'Comment not found'
+}
+
+export const ADMIN_USER_MESSAGES = {
+  GET_ALL_USERS_SUCCESS: 'Get all users successfully',
+  UPDATE_USER_SUCCESS: 'Update user successfully',
+  DELETE_USER_SUCCESS: 'Delete user successfully',
+  USER_NOT_FOUND: 'User not found',
+  EMAIL_ALREADY_EXISTS: 'Email already exists',
+  ROLE_NOT_FOUND: 'Role not found'
+}
+
+export const ADMIN_STAFF_MESSAGES = {
+  GET_ALL_ADMINS_SUCCESS: 'Get all admins/staff successfully',
+  CREATE_ADMIN_SUCCESS: 'Create admin account successfully',
+  RESET_PASSWORD_SUCCESS: 'Reset admin password successfully',
+  DELETE_ADMIN_SUCCESS: 'Delete admin account successfully',
+  STAFF_NOT_FOUND: 'Staff or admin not found',
+  EMAIL_ALREADY_EXISTS: 'Email already exists',
+  ROLE_NOT_FOUND: 'Role not found'
+}
+
+export const ADMIN_ROLE_MESSAGES = {
+  GET_ALL_PERMISSIONS_SUCCESS: 'Get all permissions successfully',
+  GET_ALL_ROLES_SUCCESS: 'Get all roles successfully',
+  CREATE_ROLE_SUCCESS: 'Create role successfully',
+  UPDATE_ROLE_PERMISSIONS_SUCCESS: 'Update role permissions successfully',
+  DELETE_ROLE_SUCCESS: 'Delete role successfully',
+  ROLE_NOT_FOUND: 'Role not found',
+  ROLE_NAME_ALREADY_EXISTS: 'Role name already exists',
+  ROLE_NAME_REQUIRED: 'Role name is required',
+  CANNOT_DELETE_DEFAULT_ROLE: 'Cannot delete default system role',
+  ROLE_IN_USE: 'Cannot delete role that is assigned to users'
+}
+
+export const ADMIN_DASHBOARD_MESSAGES = {
+  GET_DASHBOARD_STATS_SUCCESS: 'Get dashboard statistics successfully'
+}
+
+
+
+

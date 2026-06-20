@@ -4,6 +4,8 @@ import Blog from '~/models/schemas/Blog.schema'
 import { errorWithStatus } from '~/models/Error'
 import HTTP_STATUS from '~/constants/httpStatus'
 import { ADMIN_BLOG_MESSAGES } from '~/constants/messages'
+import { CreateBlogReqBody, UpdateBlogReqBody } from '~/models/requests/Blog.requests'
+import { deleteFromCloudinary } from '~/utils/cloudinary'
 
 
 class AdminBlogService {
@@ -27,14 +29,34 @@ class AdminBlogService {
 
     const skip = (page - 1) * limit
 
+    const aggregationPipeline = [
+      { $match: matchCondition },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'category_id',
+          foreignField: '_id',
+          as: 'categoryData'
+        }
+      },
+      {
+        $addFields: {
+          category_name: { $ifNull: [{ $arrayElemAt: ['$categoryData.name', 0] }, 'General'] }
+        }
+      },
+      {
+        $project: {
+          description: 0,
+          categoryData: 0
+        }
+      },
+      { $sort: { created_at: -1 } },
+      { $skip: skip },
+      { $limit: limit }
+    ]
+
     const [blogs, total] = await Promise.all([
-      databaseService.blogs
-        .find(matchCondition)
-        .project({description: 0})
-        .sort({ created_at: -1 })
-        .skip(skip)
-        .limit(limit)
-        .toArray(),
+      databaseService.blogs.aggregate(aggregationPipeline).toArray(),
       databaseService.blogs.countDocuments(matchCondition)
     ])
 
@@ -49,13 +71,13 @@ class AdminBlogService {
     }
   }
 
-  async addBlog(payload: any) {
+  async addBlog(payload: CreateBlogReqBody) {
     const newBlog = new Blog({
       title: payload.title,
       subtitle: payload.subtitle,
       description: payload.description,
       category_id: new ObjectId(payload.category_id),
-      image: payload.image,
+      image: payload.image || '',
       isPublished: payload.isPublished === 'true' || payload.isPublished === true
     })
 
@@ -64,13 +86,27 @@ class AdminBlogService {
     return newBlog
   }
 
-  async updateBlog(id: string, payload: any) {
+  async updateBlog(id: string, payload: UpdateBlogReqBody) {
+    const oldBlog = await databaseService.blogs.findOne({ _id: new ObjectId(id) })
+    if (!oldBlog) {
+      throw new errorWithStatus({
+        message: ADMIN_BLOG_MESSAGES.BLOG_NOT_FOUND,
+        status: HTTP_STATUS.NOT_FOUND
+      })
+    }
+
     const updateData: any = {}
     if (payload.title) updateData.title = payload.title
     if (payload.subtitle) updateData.subtitle = payload.subtitle
-    if (payload.description) updateData.description = payload.description
+    if (payload.description !== undefined) updateData.description = payload.description
     if (payload.category_id) updateData.category_id = new ObjectId(payload.category_id)
-    if (payload.image) updateData.image = payload.image
+    if (payload.image) {
+      updateData.image = payload.image
+      // Xóa ảnh cũ trên Cloudinary nếu người dùng upload ảnh mới
+      if (oldBlog.image && oldBlog.image.includes('cloudinary.com') && oldBlog.image !== payload.image) {
+        deleteFromCloudinary(oldBlog.image).catch(console.error) // Xóa ngầm không cần await
+      }
+    }
     if (payload.isPublished !== undefined) {
       updateData.isPublished = payload.isPublished === 'true' || payload.isPublished === true
     }
@@ -82,12 +118,6 @@ class AdminBlogService {
       { returnDocument: 'after' }
     )
 
-    if (!blog) {
-      throw new errorWithStatus({
-        message: ADMIN_BLOG_MESSAGES.BLOG_NOT_FOUND,
-        status: HTTP_STATUS.NOT_FOUND
-      })
-    }
     return blog
   }
 
@@ -107,6 +137,35 @@ class AdminBlogService {
     )
 
     return updatedBlog
+  }
+
+  async getBlogById(id: string) {
+    const blog = await databaseService.blogs.findOne({ _id: new ObjectId(id) })
+    if (!blog) {
+      throw new errorWithStatus({
+        message: ADMIN_BLOG_MESSAGES.BLOG_NOT_FOUND,
+        status: HTTP_STATUS.NOT_FOUND
+      })
+    }
+    return blog
+  }
+
+  async deleteBlogById(id: string) {
+    const blog = await databaseService.blogs.findOne({ _id: new ObjectId(id) })
+    if (!blog) {
+      throw new errorWithStatus({
+        message: ADMIN_BLOG_MESSAGES.BLOG_NOT_FOUND,
+        status: HTTP_STATUS.NOT_FOUND
+      })
+    }
+
+    // Xóa ảnh trên Cloudinary trước khi xóa bài viết khỏi DB
+    if (blog.image && blog.image.includes('cloudinary.com')) {
+      deleteFromCloudinary(blog.image).catch(console.error) // Xóa ngầm
+    }
+
+    await databaseService.blogs.deleteOne({ _id: new ObjectId(id) })
+    return blog
   }
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import BlogCard from "./BlogCard";
@@ -19,27 +19,48 @@ const BlogList = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Sync search from URL on mount
+  // Refs to track values without causing re-renders
+  const isMountedRef = useRef(false);
+  const isFetchingRef = useRef(false);
+  const pendingSearchRef = useRef(false);
+
+  // Sync search from URL on mount only
+  const urlSearch = searchParams.get("search") || "";
+
   useEffect(() => {
-    const urlSearch = searchParams.get("search");
+    isMountedRef.current = true;
     if (urlSearch) {
       setSearchQuery(urlSearch);
     }
-  }, [searchParams]);
+    return () => { isMountedRef.current = false; };
+  }, []); // Chỉ chạy 1 lần khi mount
 
   // Fetch categories
-  const fetchCategories = useCallback(async () => {
-    try {
-      const data = await blogApi.getCategories();
-      setCategories(["All", ...data.result]);
-    } catch (err) {
-      console.error("Failed to fetch categories:", err);
-      setCategories(["All", "Technology", "Life Style", "Education"]);
-    }
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCategories = async () => {
+      try {
+        const data = await blogApi.getCategories();
+        if (!cancelled) {
+          const categoryNames = data.result.map(cat => cat.name);
+          setCategories(["All", ...categoryNames]);
+        }
+      } catch (err) {
+        console.error("Failed to fetch categories:", err);
+        if (!cancelled) {
+          setCategories(["All", "Technology", "Life Style", "Education"]);
+        }
+      }
+    };
+    fetchCategories();
+    return () => { cancelled = true; };
   }, []);
 
   // Fetch blogs with filters and pagination
-  const fetchBlogs = useCallback(async () => {
+  const fetchBlogs = useCallback(async (isFromSearch = false) => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    
     setLoading(true);
     setError(null);
     try {
@@ -56,45 +77,68 @@ const BlogList = () => {
         order: sortOrder,
       });
 
-      setBlogs(data.result);
-      if (data.pagination) {
-        setTotalPages(data.pagination.total_pages || 1);
+      if (isMountedRef.current) {
+        setBlogs(data.result);
+        if (data.pagination) {
+          setTotalPages(data.pagination.total_pages || 1);
+        }
       }
     } catch (err) {
       console.error("Failed to fetch blogs:", err);
-      setError(err.message || "Failed to load blogs");
+      if (isMountedRef.current) {
+        setError(err.message || "Failed to load blogs");
+      }
     } finally {
-      setLoading(false);
+      isFetchingRef.current = false;
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }, [currentPage, itemsPerPage, searchQuery, menu, sortBy, order]);
 
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
-
+  // Fetch on mount
   useEffect(() => {
     fetchBlogs();
-  }, [fetchBlogs]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fetch blogs when page/limit/category/sort changes (not search - handled by debounce)
+  useEffect(() => {
+    // Skip if this was triggered by search debounce (debounce handles its own fetch)
+    if (pendingSearchRef.current) {
+      pendingSearchRef.current = false;
+      return;
+    }
+    fetchBlogs();
+  }, [currentPage, itemsPerPage, menu, sortBy, order]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounce search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (currentPage !== 1) {
-        setCurrentPage(1);
-      } else {
-        fetchBlogs();
-      }
+  const debounceRef = useRef(null);
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      setCurrentPage(1);
+      pendingSearchRef.current = true;
+      fetchBlogs(true);
     }, 500);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  };
+
+  // Cleanup debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
 
   const handleCategoryChange = (cat) => {
     setMenu(cat);
     setCurrentPage(1);
-  };
-
-  const handleSearchChange = (e) => {
-    setSearchQuery(e.target.value);
   };
 
   const handleSortChange = (e) => {
@@ -236,7 +280,7 @@ const BlogList = () => {
       ) : blogs.length > 0 ? (
         <>
           {/* Blog Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-8 mb-8 mx-8 sm:mx-16 xl:mx-40">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 mx-2 sm:mx-4 lg:mx-8">
             {blogs.map((blog) => (
               <BlogCard key={blog._id} blog={blog} />
             ))}
@@ -244,7 +288,7 @@ const BlogList = () => {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex flex-wrap justify-center items-center gap-2 mb-24 px-4">
+            <div className="flex flex-wrap justify-center items-center gap-1 sm:gap-2 mb-16 px-2">
               <button
                 onClick={() => handlePageChange(1)}
                 disabled={currentPage === 1}

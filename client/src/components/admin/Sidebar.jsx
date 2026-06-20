@@ -8,13 +8,18 @@ import { useAuth } from "../../context/AuthContext";
 const Sidebar = () => {
   const { user } = useAuth();
 
+  const localUser = JSON.parse(localStorage.getItem("currentUser") || "null");
+  const isAdmin = localStorage.getItem("isAdmin");
+
+  const currentUser = user || localUser;
+
   const menuItems = [
     {
       name: "Dashboard",
       path: "/admin",
       icon: assets.home_icon,
       end: true,
-      permissions: [],
+      permissions: [PERMISSIONS.VIEW_DASHBOARD],
     },
     {
       name: "Add Blogs",
@@ -27,6 +32,7 @@ const Sidebar = () => {
       path: "/admin/listBlog",
       icon: assets.list_icon,
       permissions: [
+        PERMISSIONS.VIEW_POST,
         PERMISSIONS.UPDATE_POST,
         PERMISSIONS.DELETE_POST,
         PERMISSIONS.CHANGE_POST_STATUS,
@@ -36,7 +42,11 @@ const Sidebar = () => {
       name: "Comments",
       path: "/admin/comments",
       icon: assets.comment_icon,
-      permissions: [PERMISSIONS.DELETE_COMMENT],
+      permissions: [
+        PERMISSIONS.VIEW_COMMENT,
+        PERMISSIONS.UPDATE_COMMENT,
+        PERMISSIONS.DELETE_COMMENT,
+      ],
     },
     {
       name: "Categories",
@@ -68,10 +78,19 @@ const Sidebar = () => {
     },
   ];
 
-  const userWithRole = user ? { ...user, role: user.role || user.role_id } : null;
-  const visibleMenuItems = menuItems.filter((item) =>
-    canAccessAny(userWithRole, item.permissions),
-  );
+  const userWithRole = currentUser
+    ? {
+        ...currentUser,
+        role: currentUser.role || currentUser.role_id,
+      }
+    : null;
+
+  const visibleMenuItems =
+    isAdmin === "true"
+      ? menuItems
+      : menuItems.filter((item) =>
+          canAccessAny(userWithRole, item.permissions),
+        );
 
   return (
     <div className="flex flex-col border-r border-gray-200 min-h-full pt-6">

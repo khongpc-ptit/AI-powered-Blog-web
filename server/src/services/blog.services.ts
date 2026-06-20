@@ -8,7 +8,6 @@ import { BLOG_MESSAGES } from '~/constants/messages'
 
 class BlogService {
   async getAllCategories() {
-    // Lấy tất cả danh mục (có thể lọc theo trạng thái nếu schema có thêm thuộc tính này)
     const categories = await databaseService.categories.find({}).toArray()
     return categories
   }
@@ -28,17 +27,35 @@ class BlogService {
     sort_by?: string
     order?: string
   }) {
-    const matchCondition: any = { isPublished: true } // Chỉ lấy bài viết đã xuất bản
+    const matchCondition: any = { isPublished: true }
 
     if (search) {
       matchCondition.$or = [
         { title: { $regex: search, $options: 'i' } },
-        { content: { $regex: search, $options: 'i' } }
+        { description: { $regex: search, $options: 'i' } }
       ]
     }
 
     if (category) {
-      matchCondition.category_id = new ObjectId(category)
+      const isValidObjectId = /^[a-fA-F0-9]{24}$/.test(category)
+      if (isValidObjectId) {
+        matchCondition.category_id = new ObjectId(category)
+      } else {
+        const categoryDoc = await databaseService.categories.findOne({ name: category })
+        if (categoryDoc) {
+          matchCondition.category_id = categoryDoc._id
+        } else {
+          return {
+            blogs: [],
+            pagination: {
+              page,
+              limit,
+              total_pages: 0,
+              total_items: 0
+            }
+          }
+        }
+      }
     }
 
     const sortCondition: any = {
@@ -47,13 +64,33 @@ class BlogService {
 
     const skip = (page - 1) * limit
 
+    // Sử dụng aggregation để join với categories và lấy category name
+    const categoriesCollectionName = process.env.DB_CATEGORIES_COLLECTION || 'categories'
+
     const [blogs, total] = await Promise.all([
-      databaseService.blogs
-        .find(matchCondition)
-        .sort(sortCondition)
-        .skip(skip)
-        .limit(limit)
-        .toArray(),
+      databaseService.blogs.aggregate([
+        { $match: matchCondition },
+        {
+          $lookup: {
+            from: categoriesCollectionName,
+            localField: 'category_id',
+            foreignField: '_id',
+            as: 'categoryData'
+          }
+        },
+        {
+          $addFields: {
+            category: { $ifNull: [{ $arrayElemAt: ['$categoryData.name', 0] }, 'General'] },
+            content: '$description'
+          }
+        },
+        {
+          $project: { categoryData: 0 }
+        },
+        { $sort: sortCondition },
+        { $skip: skip },
+        { $limit: limit }
+      ]).toArray(),
       databaseService.blogs.countDocuments(matchCondition)
     ])
 
@@ -69,18 +106,52 @@ class BlogService {
   }
 
   async getBlogById(id: string) {
-    const blog = await databaseService.blogs.findOneAndUpdate(
-      { _id: new ObjectId(id) }, 
-      { $inc: { views: 1 } },
-      { returnDocument: 'after' }
-    )
-    if (!blog) {
+    // Validate ObjectId
+    if (!/^[a-fA-F0-9]{24}$/.test(id)) {
+      throw new errorWithStatus({
+        message: 'Invalid blog ID',
+        status: HTTP_STATUS.BAD_REQUEST
+      })
+    }
+
+    const categoriesCollectionName = process.env.DB_CATEGORIES_COLLECTION || 'categories'
+
+    // Sử dụng aggregation để join với categories
+    const blog = await databaseService.blogs.aggregate([
+      { $match: { _id: new ObjectId(id), isPublished: true } },
+      {
+        $lookup: {
+          from: categoriesCollectionName,
+          localField: 'category_id',
+          foreignField: '_id',
+          as: 'categoryData'
+        }
+      },
+      {
+        $addFields: {
+          category: { $ifNull: [{ $arrayElemAt: ['$categoryData.name', 0] }, 'General'] },
+          content: '$description'
+        }
+      },
+      {
+        $project: { categoryData: 0 }
+      }
+    ]).toArray()
+
+    if (!blog || blog.length === 0) {
       throw new errorWithStatus({
         message: BLOG_MESSAGES.BLOG_NOT_FOUND,
         status: HTTP_STATUS.NOT_FOUND
       })
     }
-    return blog
+
+    // Increment views
+    await databaseService.blogs.updateOne(
+      { _id: new ObjectId(id) },
+      { $inc: { views: 1 } }
+    )
+
+    return { ...blog[0], views: (blog[0].views || 0) + 1 }
   }
 
 
@@ -93,8 +164,21 @@ class BlogService {
     page?: number
     limit?: number
   }) {
+    // Validate ObjectId
+    if (!/^[a-fA-F0-9]{24}$/.test(blog_id)) {
+      return {
+        comments: [],
+        pagination: {
+          page,
+          limit,
+          total_pages: 0,
+          total_items: 0
+        }
+      }
+    }
+
     const skip = (page - 1) * limit
-    const matchCondition = { blog_id: new ObjectId(blog_id), is_approved: true}
+    const matchCondition = { blog_id: new ObjectId(blog_id), is_approved: true }
 
     const [comments, total] = await Promise.all([
       databaseService.comments
@@ -118,12 +202,20 @@ class BlogService {
   }
 
   async addComment({ blog_id, user_id, name, content }: { blog_id: string; user_id: string; name: string; content: string }) {
+    // Validate ObjectId
+    if (!/^[a-fA-F0-9]{24}$/.test(blog_id)) {
+      throw new errorWithStatus({
+        message: 'Invalid blog ID',
+        status: HTTP_STATUS.BAD_REQUEST
+      })
+    }
+
     const newComment = new Comment({
       blog_id: new ObjectId(blog_id),
       user_id: user_id,
       name: name,
       content: content,
-      is_approved: true
+      is_approved: false
     })
     const result = await databaseService.comments.insertOne(newComment)
     newComment._id = result.insertedId

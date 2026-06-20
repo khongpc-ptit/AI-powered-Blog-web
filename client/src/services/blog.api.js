@@ -1,4 +1,14 @@
-const API_BASE_URL = "/api";
+const API_BASE_URL = "http://localhost:3000/api";
+
+// Shared AbortController for blog requests
+let currentController = null;
+
+const cancelPreviousRequest = () => {
+  if (currentController) {
+    currentController.abort();
+  }
+  currentController = new AbortController();
+};
 
 const handleResponse = async (response) => {
   const data = await response.json();
@@ -7,11 +17,20 @@ const handleResponse = async (response) => {
     if (data.errors) {
       const fieldErrors = {};
       Object.keys(data.errors).forEach((field) => {
-        fieldErrors[field] = { msg: data.errors[field].msg || data.errors[field] };
+        fieldErrors[field] = {
+          msg: data.errors[field].msg || data.errors[field],
+        };
       });
-      throw { message: data.message || "Validation error", status: response.status, errors: fieldErrors };
+      throw {
+        message: data.message || "Validation error",
+        status: response.status,
+        errors: fieldErrors,
+      };
     }
-    throw { message: data.message || "An error occurred", status: response.status };
+    throw {
+      message: data.message || "An error occurred",
+      status: response.status,
+    };
   }
 
   return data;
@@ -25,7 +44,16 @@ export const blogApi = {
   },
 
   // 2) Lấy danh sách bài viết (Blogs) với pagination, search, filter, sort
-  getBlogs: async ({ page = 1, limit = 10, search = "", category = "", sort_by = "created_at", order = "desc" } = {}) => {
+  getBlogs: async ({
+    page = 1,
+    limit = 10,
+    search = "",
+    category = "",
+    sort_by = "created_at",
+    order = "desc",
+  } = {}) => {
+    cancelPreviousRequest();
+    
     const params = new URLSearchParams();
     params.append("page", page);
     params.append("limit", limit);
@@ -34,7 +62,9 @@ export const blogApi = {
     if (sort_by) params.append("sort_by", sort_by);
     if (order) params.append("order", order);
 
-    const response = await fetch(`${API_BASE_URL}/blogs?${params.toString()}`);
+    const response = await fetch(`${API_BASE_URL}/blogs?${params.toString()}`, {
+      signal: currentController.signal,
+    });
     return handleResponse(response);
   },
 
@@ -50,7 +80,9 @@ export const blogApi = {
     params.append("page", page);
     params.append("limit", limit);
 
-    const response = await fetch(`${API_BASE_URL}/blogs/${blogId}/comments?${params.toString()}`);
+    const response = await fetch(
+      `${API_BASE_URL}/blogs/${blogId}/comments?${params.toString()}`,
+    );
     return handleResponse(response);
   },
 

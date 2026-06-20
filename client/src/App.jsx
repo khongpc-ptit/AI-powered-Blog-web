@@ -9,6 +9,8 @@ import UserLogin from "./pages/UserLogin";
 import UserRegister from "./pages/user/UserRegister";
 import UserProfile from "./pages/user/UserProfile";
 
+import AdminLogin from "./pages/admin/AdminLogin";
+
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import ProtectedPermissionRoute from "./components/ProtectedPermissionRoute";
@@ -35,6 +37,9 @@ const App = () => {
       {/* Auth routes */}
       <Route path="/login" element={<UserLogin />} />
       <Route path="/register" element={<UserRegister />} />
+
+      {/* Admin login route */}
+      <Route path="/adminlogin" element={<AdminLogin />} />
 
       {/* User protected route */}
       <Route

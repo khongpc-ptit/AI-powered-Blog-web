@@ -13,11 +13,10 @@ export const registerValidator = validate(
   checkSchema(
     {
       name: {
-        in: 'body', // chỉ đóng vai trò là chỉ định ví trí không có chức năng validate
+        in: 'body', 
         isLength: {
           options: { min: 1, max: 50 },
           errorMessage: USER_MESSAGES.USERNAME_LENGTH,
-          //bail sẽ giúp dừng quá trình validate nếu có lỗi xảy ra ở bước đó
           bail: true
         },
         isString: { errorMessage: USER_MESSAGES.USERNAME_STRING, bail: true },

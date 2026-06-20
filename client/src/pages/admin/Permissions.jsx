@@ -1,90 +1,416 @@
-import React, { useMemo, useState } from "react";
-import {
-  DEFAULT_ROLES,
-  PERMISSION_GROUPS,
-  PERMISSIONS,
-  ROLE_CODES,
-} from "../../constants/rbac";
-import {
-  createCustomRole,
-  deleteCustomRole,
-  getAllRoles,
-  getCurrentUser,
-  getRolePermissions,
-  isSuperAdmin,
-  makeRoleCode,
-  saveRolePermissions,
-} from "../../utils/permission";
+import React, { useEffect, useMemo, useState } from "react";
+import { roleApi } from "../../services/role.api";
+import { staffApi } from "../../services/staff.api";
 
 const Permissions = () => {
-  const currentUser = getCurrentUser();
-  const canEdit = isSuperAdmin(currentUser);
+  const [roles, setRoles] = useState([]);
+  const [permissions, setPermissions] = useState([]);
+  const [staffs, setStaffs] = useState([]);
 
-  const [rolesMap, setRolesMap] = useState(() => getAllRoles());
+  const [selectedRoleId, setSelectedRoleId] = useState("");
+  const [selectedPermissions, setSelectedPermissions] = useState([]);
 
-  const roles = useMemo(() => Object.values(rolesMap), [rolesMap]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deletingRoleId, setDeletingRoleId] = useState("");
 
-  const firstEditableRole = roles.find(
-    (role) => role.code !== ROLE_CODES.SUPER_ADMIN,
-  );
-
-  const [selectedRoleCode, setSelectedRoleCode] = useState(
-    firstEditableRole?.code || ROLE_CODES.ADMIN,
-  );
-
-  const [rolePermissions, setRolePermissions] = useState(() => {
-    const initialData = {};
-    const allRoles = getAllRoles();
-
-    Object.values(allRoles).forEach((role) => {
-      initialData[role.code] = getRolePermissions(role.code);
-    });
-
-    return initialData;
+  const [message, setMessage] = useState({
+    type: "",
+    text: "",
   });
 
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newRoleName, setNewRoleName] = useState("");
-  const [newRoleCode, setNewRoleCode] = useState("");
-  const [newRoleDescription, setNewRoleDescription] = useState("");
+  const [deleteConfirmRole, setDeleteConfirmRole] = useState(null);
 
-  const selectedRole = rolesMap[selectedRoleCode];
-  const selectedRolePermissions = rolePermissions[selectedRoleCode] || [];
-  const roleCodePreview = makeRoleCode(newRoleCode || newRoleName);
+  const [newRoleData, setNewRoleData] = useState({
+    name: "",
+    description: "",
+    permissions: [],
+  });
+
+  const showMessage = (type, text) => {
+    setMessage({ type, text });
+
+    setTimeout(() => {
+      setMessage({
+        type: "",
+        text: "",
+      });
+    }, 3000);
+  };
+
+  const clearMessage = () => {
+    setMessage({
+      type: "",
+      text: "",
+    });
+  };
+
+  const getErrorMessage = (err) => {
+    if (err?.status === 400) {
+      return err.message || "Yêu cầu không hợp lệ.";
+    }
+
+    if (err?.status === 401) {
+      return err.message || "Bạn chưa đăng nhập hoặc token không hợp lệ.";
+    }
+
+    if (err?.status === 403) {
+      return err.message || "Bạn không có quyền thực hiện thao tác này.";
+    }
+
+    if (err?.status === 404) {
+      return err.message || "Role không tồn tại hoặc API xóa role chưa có.";
+    }
+
+    if (err?.status === 409) {
+      if (err.message === "Cannot delete role that is assigned to users") {
+        return "Role này đang được gán cho tài khoản, không thể xóa. Hãy đổi role hoặc xóa tài khoản đang dùng role này trước.";
+      }
+
+      return err.message || "Role này đang được sử dụng, không thể xóa.";
+    }
+
+    if (err?.status === 422) {
+      if (err.errors) {
+        const firstError = Object.values(err.errors)[0];
+        return firstError?.msg || err.message || "Dữ liệu không hợp lệ.";
+      }
+
+      return err.message || "Dữ liệu không hợp lệ.";
+    }
+
+    if (err?.status === 500) {
+      return err.message || "Lỗi server.";
+    }
+
+    if (err?.errors) {
+      const firstError = Object.values(err.errors)[0];
+      return firstError?.msg || err.message || "Dữ liệu không hợp lệ.";
+    }
+
+    return err?.message || "Có lỗi xảy ra.";
+  };
+
+  const formatRoleName = (name) => {
+    if (!name) return "N/A";
+
+    return name
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  const getRoleIdValue = (roleId) => {
+    if (!roleId) return "";
+
+    if (typeof roleId === "object") {
+      return roleId._id || roleId.id || roleId.$oid || "";
+    }
+
+    return roleId;
+  };
+
+  const isUserRole = (role) => {
+    return role?.name?.toLowerCase() === "user";
+  };
+
+  const isSuperAdminRole = (role) => {
+    const roleName = role?.name?.toLowerCase();
+
+    return roleName === "super_admin" || roleName === "super admin";
+  };
+
+  const getRoleUsageCount = (roleId) => {
+    return staffs.filter((staff) => {
+      const staffRoleId = getRoleIdValue(
+        staff?.role_id || staff?.roleId || staff?.role,
+      );
+
+      return staffRoleId === roleId;
+    }).length;
+  };
+
+  const isRoleInUse = (role) => {
+    if (!role?._id) return false;
+
+    return getRoleUsageCount(role._id) > 0;
+  };
+
+  const selectedRole = useMemo(() => {
+    return roles.find((role) => role._id === selectedRoleId) || null;
+  }, [roles, selectedRoleId]);
+
+  const isSelectedRoleLocked = selectedRole
+    ? isSuperAdminRole(selectedRole)
+    : false;
+
+  const selectedRolePermissionCount = selectedPermissions.length;
+
+  const permissionGroups = useMemo(() => {
+    const groups = {
+      DASHBOARD: {
+        title: "Dashboard",
+        permissions: [],
+      },
+      POST: {
+        title: "Bài viết",
+        permissions: [],
+      },
+      CATEGORY: {
+        title: "Danh mục",
+        permissions: [],
+      },
+      COMMENT: {
+        title: "Bình luận",
+        permissions: [],
+      },
+      USER: {
+        title: "Người dùng",
+        permissions: [],
+      },
+      ADMIN: {
+        title: "Quản trị viên & Phân quyền",
+        permissions: [],
+      },
+      OTHER: {
+        title: "Khác",
+        permissions: [],
+      },
+    };
+
+    permissions.forEach((permission) => {
+      const code = permission.code || "";
+
+      if (code.includes("DASHBOARD")) {
+        groups.DASHBOARD.permissions.push(permission);
+      } else if (code.includes("POST")) {
+        groups.POST.permissions.push(permission);
+      } else if (code.includes("CATEGORY")) {
+        groups.CATEGORY.permissions.push(permission);
+      } else if (code.includes("COMMENT")) {
+        groups.COMMENT.permissions.push(permission);
+      } else if (code.includes("USER")) {
+        groups.USER.permissions.push(permission);
+      } else if (code.includes("ADMIN") || code.includes("PERMISSION")) {
+        groups.ADMIN.permissions.push(permission);
+      } else {
+        groups.OTHER.permissions.push(permission);
+      }
+    });
+
+    return Object.values(groups).filter(
+      (group) => group.permissions.length > 0,
+    );
+  }, [permissions]);
+
+  const fetchPermissions = async () => {
+    const data = await roleApi.getPermissions();
+
+    setPermissions(data.result || []);
+  };
+
+  const fetchRoles = async () => {
+    const data = await roleApi.getRoles();
+
+    const roleList = data.result || [];
+    const roleListWithoutUser = roleList.filter((role) => !isUserRole(role));
+
+    setRoles(roleListWithoutUser);
+
+    if (roleListWithoutUser.length > 0) {
+      const firstRole = roleListWithoutUser[0];
+
+      setSelectedRoleId((prev) => {
+        const isCurrentRoleStillExists = roleListWithoutUser.some(
+          (role) => role._id === prev,
+        );
+
+        return isCurrentRoleStillExists ? prev : firstRole._id;
+      });
+    } else {
+      setSelectedRoleId("");
+      setSelectedPermissions([]);
+    }
+  };
+
+  const fetchStaffs = async () => {
+    const data = await staffApi.getStaffs({
+      page: 1,
+      limit: 1000,
+      search: "",
+    });
+
+    setStaffs(data.result || []);
+  };
+
+  const fetchPageData = async () => {
+    try {
+      setLoading(true);
+      clearMessage();
+
+      await Promise.all([fetchPermissions(), fetchRoles(), fetchStaffs()]);
+    } catch (err) {
+      showMessage("error", getErrorMessage(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPageData();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedRole) {
+      setSelectedPermissions([]);
+      return;
+    }
+
+    setSelectedPermissions(selectedRole.permissions || []);
+  }, [selectedRole]);
+
+  const handleSelectRole = (role) => {
+    setSelectedRoleId(role._id);
+    setSelectedPermissions(role.permissions || []);
+    clearMessage();
+  };
 
   const hasPermission = (permissionCode) => {
-    return selectedRolePermissions.includes(permissionCode);
-  };
-
-  const isSelectedRoleLocked = selectedRoleCode === ROLE_CODES.SUPER_ADMIN;
-
-  const isLockedPermission = (permissionCode) => {
-    return permissionCode === PERMISSIONS.MANAGE_PERMISSION;
-  };
-
-  const canTogglePermission = (permissionCode) => {
-    if (!canEdit) return false;
-    if (isSelectedRoleLocked) return false;
-    if (isLockedPermission(permissionCode)) return false;
-
-    return true;
-  };
-
-  const closeCreateModal = () => {
-    setShowCreateModal(false);
-    setNewRoleName("");
-    setNewRoleCode("");
-    setNewRoleDescription("");
+    return selectedPermissions.includes(permissionCode);
   };
 
   const handleTogglePermission = (permissionCode) => {
-    if (!canTogglePermission(permissionCode)) return;
+    if (!selectedRole) return;
 
-    setRolePermissions((prev) => {
-      const currentPermissions = prev[selectedRoleCode] || [];
+    if (isSuperAdminRole(selectedRole)) {
+      showMessage("error", "Super Admin đã bị khóa, không thể sửa quyền.");
+      return;
+    }
+
+    setSelectedPermissions((prev) => {
+      const isExisting = prev.includes(permissionCode);
+
+      if (isExisting) {
+        return prev.filter((item) => item !== permissionCode);
+      }
+
+      return [...prev, permissionCode];
+    });
+
+    clearMessage();
+  };
+
+  const handleSave = async () => {
+    if (!selectedRole) {
+      showMessage("error", "Vui lòng chọn role cần cập nhật quyền.");
+      return;
+    }
+
+    if (isSuperAdminRole(selectedRole)) {
+      showMessage("error", "Super Admin đã bị khóa, không thể cập nhật quyền.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      clearMessage();
+
+      await roleApi.updateRolePermissions(
+        selectedRole._id,
+        selectedPermissions,
+      );
+
+      await fetchRoles();
+
+      showMessage("success", "Đã cập nhật quyền cho role thành công.");
+    } catch (err) {
+      showMessage("error", getErrorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteRole = (role) => {
+    if (!role) return;
+
+    clearMessage();
+
+    if (isSuperAdminRole(role)) {
+      showMessage("error", "Không thể xóa Super Admin.");
+      return;
+    }
+
+    if (isRoleInUse(role)) {
+      showMessage(
+        "error",
+        `Role "${formatRoleName(role.name)}" đang có ${getRoleUsageCount(
+          role._id,
+        )} tài khoản sử dụng, không thể xóa.`,
+      );
+      return;
+    }
+
+    setDeleteConfirmRole(role);
+  };
+
+  const confirmDeleteRole = async () => {
+    if (!deleteConfirmRole) return;
+
+    if (isSuperAdminRole(deleteConfirmRole)) {
+      showMessage("error", "Không thể xóa Super Admin.");
+      setDeleteConfirmRole(null);
+      return;
+    }
+
+    try {
+      setDeletingRoleId(deleteConfirmRole._id);
+      clearMessage();
+
+      await roleApi.deleteRole(deleteConfirmRole._id);
+
+      const deletedRoleName = deleteConfirmRole.name;
+
+      setDeleteConfirmRole(null);
+
+      await Promise.all([fetchRoles(), fetchStaffs()]);
+
+      showMessage(
+        "success",
+        `Đã xóa role "${formatRoleName(deletedRoleName)}" thành công.`,
+      );
+    } catch (err) {
+      const roleName = deleteConfirmRole?.name;
+
+      setDeleteConfirmRole(null);
+
+      if (err?.message === "Cannot delete role that is assigned to users") {
+        showMessage(
+          "error",
+          `Role "${formatRoleName(
+            roleName,
+          )}" đang được gán cho tài khoản, không thể xóa. Hãy đổi role hoặc xóa tài khoản đang dùng role này trước.`,
+        );
+      } else {
+        showMessage("error", getErrorMessage(err));
+      }
+    } finally {
+      setDeletingRoleId("");
+    }
+  };
+
+  const handleCreateInputChange = (e) => {
+    const { name, value } = e.target;
+
+    setNewRoleData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleToggleNewRolePermission = (permissionCode) => {
+    setNewRoleData((prev) => {
+      const currentPermissions = prev.permissions || [];
       const isExisting = currentPermissions.includes(permissionCode);
 
       const updatedPermissions = isExisting
@@ -93,115 +419,79 @@ const Permissions = () => {
 
       return {
         ...prev,
-        [selectedRoleCode]: updatedPermissions,
+        permissions: updatedPermissions,
       };
     });
-
-    setMessage("");
-    setError("");
   };
 
-  const handleCreateRole = (e) => {
+  const closeCreateModal = () => {
+    setShowCreateModal(false);
+    setNewRoleData({
+      name: "",
+      description: "",
+      permissions: [],
+    });
+  };
+
+  const handleCreateRole = async (e) => {
     e.preventDefault();
+    clearMessage();
 
-    if (!canEdit) {
-      setError("Chỉ Super Admin mới được tạo role mới.");
+    const payload = {
+      name: newRoleData.name.trim(),
+      description: newRoleData.description.trim(),
+      permissions: newRoleData.permissions || [],
+    };
+
+    if (!payload.name) {
+      showMessage("error", "Vui lòng nhập tên role.");
       return;
     }
 
-    const result = createCustomRole({
-      label: newRoleName,
-      code: newRoleCode,
-      description: newRoleDescription,
-    });
-
-    if (!result.success) {
-      setError(result.message);
-      setMessage("");
+    if (payload.name.toLowerCase() === "user") {
+      showMessage("error", "Không tạo role USER ở trang phân quyền admin.");
       return;
     }
 
-    const updatedRoles = getAllRoles();
-
-    setRolesMap(updatedRoles);
-
-    setRolePermissions((prev) => ({
-      ...prev,
-      [result.role.code]: [],
-    }));
-
-    setSelectedRoleCode(result.role.code);
-    closeCreateModal();
-
-    setError("");
-    setMessage(`Đã tạo role "${result.role.label}" thành công.`);
-  };
-
-  const handleDeleteRole = (roleCode) => {
-    if (!canEdit) return;
-
-    const role = rolesMap[roleCode];
-
-    if (!role?.isCustom) {
-      setError("Không thể xóa role mặc định của hệ thống.");
-      setMessage("");
+    if (
+      payload.name.toLowerCase() === "super_admin" ||
+      payload.name.toLowerCase() === "super admin"
+    ) {
+      showMessage("error", "Không tạo thêm role Super Admin.");
       return;
     }
 
-    const confirmDelete = window.confirm(
-      `Bạn có chắc muốn xóa role "${role.label}" không?`,
-    );
+    try {
+      await roleApi.createRole(payload);
 
-    if (!confirmDelete) return;
+      closeCreateModal();
 
-    const result = deleteCustomRole(roleCode);
+      await fetchRoles();
 
-    if (!result.success) {
-      setError(result.message);
-      setMessage("");
-      return;
-    }
+      const rolesData = await roleApi.getRoles();
+      const roleList = rolesData.result || [];
+      const roleListWithoutUser = roleList.filter((role) => !isUserRole(role));
 
-    const updatedRoles = getAllRoles();
+      const createdRole = roleListWithoutUser.find(
+        (role) => role.name.toLowerCase() === payload.name.toLowerCase(),
+      );
 
-    setRolesMap(updatedRoles);
-
-    setRolePermissions((prev) => {
-      const cloned = { ...prev };
-      delete cloned[roleCode];
-      return cloned;
-    });
-
-    const nextRole =
-      Object.values(updatedRoles).find(
-        (item) => item.code !== ROLE_CODES.SUPER_ADMIN,
-      ) || DEFAULT_ROLES[ROLE_CODES.ADMIN];
-
-    setSelectedRoleCode(nextRole.code);
-
-    setError("");
-    setMessage("Đã xóa role thành công.");
-  };
-
-  const handleSave = () => {
-    if (!canEdit) return;
-
-    const dataToSave = {};
-
-    roles.forEach((role) => {
-      if (role.code !== ROLE_CODES.SUPER_ADMIN) {
-        dataToSave[role.code] = rolePermissions[role.code] || [];
+      if (createdRole) {
+        setSelectedRoleId(createdRole._id);
+        setSelectedPermissions(createdRole.permissions || []);
       }
-    });
 
-    saveRolePermissions(dataToSave);
-
-    setError("");
-    setMessage("Đã lưu thay đổi phân quyền thành công.");
+      showMessage(
+        "success",
+        `Đã tạo role "${formatRoleName(payload.name)}" thành công.`,
+      );
+    } catch (err) {
+      showMessage("error", getErrorMessage(err));
+    }
   };
 
-  const countPermissionsByRole = (roleCode) => {
-    return rolePermissions[roleCode]?.length || 0;
+  const countPermissionsByRole = (role) => {
+    return role?.permissions?.length || 0;
   };
 
   return (
@@ -217,226 +507,307 @@ const Permissions = () => {
           <button
             type="button"
             onClick={() => setShowCreateModal(true)}
-            disabled={!canEdit}
-            className={`px-4 py-2 rounded text-sm ${
-              canEdit
-                ? "bg-primary text-white cursor-pointer hover:bg-primary/90"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
-            }`}
+            className="px-4 py-2 rounded text-sm bg-primary text-white cursor-pointer hover:bg-primary/90"
           >
-            Create Role New
+            Create New Role
           </button>
 
           <button
             type="button"
             onClick={handleSave}
-            disabled={!canEdit}
+            disabled={
+              saving || loading || !selectedRole || isSelectedRoleLocked
+            }
             className={`px-4 py-2 rounded text-sm ${
-              canEdit
-                ? "bg-primary text-white cursor-pointer hover:bg-primary/90"
-                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              saving || loading || !selectedRole || isSelectedRoleLocked
+                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                : "bg-primary text-white cursor-pointer hover:bg-primary/90"
             }`}
           >
-            Save Changes
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </div>
 
-      {!canEdit && (
-        <div className="mb-5 bg-red-50 border border-red-100 text-red-600 rounded-lg p-4 text-sm">
-          Chỉ Super Admin mới được tạo role và thay đổi quyền của role.
+      {message.text && (
+        <div
+          className={`mb-5 rounded-lg p-4 text-sm border ${
+            message.type === "success"
+              ? "bg-green-50 border-green-100 text-green-600"
+              : "bg-red-50 border-red-100 text-red-600"
+          }`}
+        >
+          {message.text}
         </div>
       )}
 
-      {message && (
-        <div className="mb-5 bg-green-50 border border-green-100 text-green-600 rounded-lg p-4 text-sm">
-          {message}
+      {loading ? (
+        <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+          Loading roles and permissions...
         </div>
-      )}
-
-      {error && (
-        <div className="mb-5 bg-red-50 border border-red-100 text-red-600 rounded-lg p-4 text-sm">
-          {error}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-6">
-        {/* Role list */}
-        <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden h-fit">
-          <div className="px-5 py-4 border-b border-gray-100">
-            <h2 className="font-semibold text-gray-800">Role List</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Chọn role cần phân quyền.
-            </p>
-          </div>
-
-          <div className="p-3 flex flex-col gap-2 max-h-[680px] overflow-y-auto">
-            {roles.map((role) => {
-              const isActive = selectedRoleCode === role.code;
-              const isSuper = role.code === ROLE_CODES.SUPER_ADMIN;
-
-              return (
-                <button
-                  key={role.code}
-                  type="button"
-                  onClick={() => setSelectedRoleCode(role.code)}
-                  className={`text-left rounded-lg border p-4 transition-all cursor-pointer ${
-                    isActive
-                      ? "border-primary bg-primary/5"
-                      : "border-gray-100 bg-white hover:border-primary/40 hover:bg-gray-50"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-semibold text-gray-800">
-                        {role.label}
-                      </h3>
-                      <p className="text-xs text-gray-400 mt-1">{role.code}</p>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-2">
-                      {isSuper && (
-                        <span className="text-[10px] px-2 py-1 rounded-full bg-orange-50 text-orange-600 border border-orange-100">
-                          LOCKED
-                        </span>
-                      )}
-
-                      {role.isCustom && (
-                        <span className="text-[10px] px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
-                          CUSTOM
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-gray-500 mt-3 leading-5">
-                    {role.description}
-                  </p>
-
-                  <div className="flex items-center justify-between mt-3">
-                    <p className="text-xs text-primary font-medium">
-                      {countPermissionsByRole(role.code)} permissions
-                    </p>
-
-                    {role.isCustom && canEdit && (
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteRole(role.code);
-                        }}
-                        className="text-xs text-red-500 hover:underline"
-                      >
-                        Delete
-                      </span>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Permission checklist */}
-        <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-100 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
-            <div>
-              <h2 className="font-semibold text-gray-800">
-                Permissions for{" "}
-                <span className="text-primary">{selectedRole?.label}</span>
-              </h2>
+      ) : (
+        <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-6">
+          <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden h-fit">
+            <div className="px-5 py-4 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-800">Role List</h2>
               <p className="text-sm text-gray-500 mt-1">
-                {selectedRole?.description}
+                Chọn role cần phân quyền.
               </p>
             </div>
 
-            <div className="text-sm bg-primary/5 text-primary px-4 py-2 rounded-lg h-fit">
-              {selectedRolePermissions.length} permissions selected
-            </div>
-          </div>
-
-          {isSelectedRoleLocked && (
-            <div className="m-5 bg-orange-50 border border-orange-100 text-orange-600 rounded-lg p-4 text-sm">
-              Super Admin là role toàn quyền và bị khóa.
-            </div>
-          )}
-
-          <div className="p-5 space-y-5">
-            {PERMISSION_GROUPS.map((group) => (
-              <div
-                key={group.title}
-                className="border border-gray-100 rounded-lg overflow-hidden"
-              >
-                <div className="bg-primary/5 px-4 py-3">
-                  <h3 className="font-semibold text-primary">{group.title}</h3>
+            <div className="p-3 flex flex-col gap-2 max-h-[680px] overflow-y-auto">
+              {roles.length === 0 ? (
+                <div className="p-4 text-sm text-gray-500">
+                  Không có role quản trị nào.
                 </div>
+              ) : (
+                roles.map((role) => {
+                  const isActive = selectedRoleId === role._id;
+                  const isSuper = isSuperAdminRole(role);
+                  const roleUsed = isRoleInUse(role);
+                  const usageCount = getRoleUsageCount(role._id);
+                  const isDeleting = deletingRoleId === role._id;
+                  const canDelete = !isSuper && !roleUsed;
 
-                <div className="divide-y divide-gray-100">
-                  {group.permissions.map((permission) => {
-                    const checked = hasPermission(permission.code);
-                    const disabled = !canTogglePermission(permission.code);
+                  return (
+                    <button
+                      key={role._id}
+                      type="button"
+                      onClick={() => handleSelectRole(role)}
+                      className={`text-left rounded-lg border p-4 transition-all cursor-pointer ${
+                        isActive
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-100 bg-white hover:border-primary/40 hover:bg-gray-50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-800">
+                            {formatRoleName(role.name)}
+                          </h3>
 
-                    return (
-                      <label
-                        key={permission.code}
-                        className={`flex items-start gap-4 p-4 ${
-                          disabled
-                            ? "cursor-not-allowed bg-gray-50/60"
-                            : "cursor-pointer hover:bg-gray-50"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          disabled={disabled}
-                          onChange={() =>
-                            handleTogglePermission(permission.code)
-                          }
-                          className="mt-1 scale-125 cursor-pointer disabled:cursor-not-allowed"
-                        />
+                          <p className="text-xs text-gray-400 mt-1">
+                            ID: {role._id}
+                          </p>
+                        </div>
 
-                        <div className="flex-1">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                            <p className="font-medium text-gray-800">
-                              {permission.label}
-                            </p>
-
-                            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded w-fit">
-                              {permission.code}
+                        <div className="flex flex-col items-end gap-2">
+                          {isSuper && (
+                            <span className="text-[10px] px-2 py-1 rounded-full bg-orange-50 text-orange-600 border border-orange-100">
+                              LOCKED
                             </span>
-                          </div>
+                          )}
 
-                          <p className="text-sm text-gray-500 mt-1">
-                            {permission.description}
+                          {!isSuper && roleUsed && (
+                            <span className="text-[10px] px-2 py-1 rounded-full bg-red-50 text-red-600 border border-red-100">
+                              IN USE
+                            </span>
+                          )}
+
+                          {!isSuper && !roleUsed && (
+                            <span className="text-[10px] px-2 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                              CAN DELETE
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-gray-500 mt-3 leading-5">
+                        {role.description || "No description"}
+                      </p>
+
+                      <div className="flex items-center justify-between mt-3">
+                        <div>
+                          <p className="text-xs text-primary font-medium">
+                            {countPermissionsByRole(role)} permissions
                           </p>
 
-                          {permission.code ===
-                            PERMISSIONS.MANAGE_PERMISSION && (
-                            <p className="text-xs text-orange-500 mt-2">
-                              Quyền này chỉ dành cho Super Admin, không cấp cho
-                              role khác trên giao diện demo.
+                          {roleUsed && (
+                            <p className="text-xs text-red-400 mt-1">
+                              {usageCount} account đang sử dụng role này
                             </p>
                           )}
                         </div>
-                      </label>
-                    );
-                  })}
-                </div>
+
+                        {!isSuper && (
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteRole(role);
+                            }}
+                            className={`text-xs ${
+                              canDelete
+                                ? "text-red-500 hover:underline cursor-pointer"
+                                : "text-gray-400 cursor-not-allowed"
+                            }`}
+                          >
+                            {isDeleting ? "Deleting..." : "Delete"}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow border border-gray-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-gray-100 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-gray-800">
+                  Permissions for{" "}
+                  <span className="text-primary">
+                    {selectedRole ? formatRoleName(selectedRole.name) : "N/A"}
+                  </span>
+                </h2>
+
+                <p className="text-sm text-gray-500 mt-1">
+                  {selectedRole?.description || "No description"}
+                </p>
+
+                {selectedRole && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Role ID: {selectedRole._id}
+                  </p>
+                )}
               </div>
-            ))}
+
+              <div className="text-sm bg-primary/5 text-primary px-4 py-2 rounded-lg h-fit">
+                {selectedRolePermissionCount} permissions selected
+              </div>
+            </div>
+
+            {isSelectedRoleLocked && (
+              <div className="m-5 bg-orange-50 border border-orange-100 text-orange-600 rounded-lg p-4 text-sm">
+                Super Admin là role toàn quyền và đã bị khóa. Không thể sửa
+                quyền hoặc xóa role này.
+              </div>
+            )}
+
+            <div className="p-5 space-y-5">
+              {permissionGroups.length === 0 ? (
+                <div className="text-sm text-gray-500">
+                  Không có permission nào.
+                </div>
+              ) : (
+                permissionGroups.map((group) => (
+                  <div
+                    key={group.title}
+                    className="border border-gray-100 rounded-lg overflow-hidden"
+                  >
+                    <div className="bg-primary/5 px-4 py-3">
+                      <h3 className="font-semibold text-primary">
+                        {group.title}
+                      </h3>
+                    </div>
+
+                    <div className="divide-y divide-gray-100">
+                      {group.permissions.map((permission) => {
+                        const checked = hasPermission(permission.code);
+
+                        return (
+                          <label
+                            key={permission.code}
+                            className={`flex items-start gap-4 p-4 ${
+                              isSelectedRoleLocked
+                                ? "cursor-not-allowed bg-gray-50/60"
+                                : "cursor-pointer hover:bg-gray-50"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={isSelectedRoleLocked}
+                              onChange={() =>
+                                handleTogglePermission(permission.code)
+                              }
+                              className="mt-1 scale-125 cursor-pointer disabled:cursor-not-allowed"
+                            />
+
+                            <div className="flex-1">
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                <p className="font-medium text-gray-800">
+                                  {permission.name}
+                                </p>
+
+                                <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded w-fit">
+                                  {permission.code}
+                                </span>
+                              </div>
+
+                              <p className="text-sm text-gray-500 mt-1">
+                                {permission.description}
+                              </p>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {deleteConfirmRole && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md bg-white rounded-xl shadow-xl border border-gray-100 p-6">
+            <h2 className="text-xl font-semibold text-gray-800">Delete Role</h2>
+
+            <p className="text-sm text-gray-500 mt-3">
+              Bạn có chắc muốn xóa role{" "}
+              <span className="font-semibold text-gray-800">
+                "{formatRoleName(deleteConfirmRole.name)}"
+              </span>{" "}
+              không?
+            </p>
+
+            <p className="text-xs text-red-500 mt-3">
+              Hành động này không thể hoàn tác.
+            </p>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmRole(null)}
+                className="px-5 py-2 border border-gray-300 rounded cursor-pointer text-gray-600 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={confirmDeleteRole}
+                disabled={deletingRoleId === deleteConfirmRole._id}
+                className={`px-5 py-2 rounded text-white ${
+                  deletingRoleId === deleteConfirmRole._id
+                    ? "bg-red-300 cursor-not-allowed"
+                    : "bg-red-500 hover:bg-red-600 cursor-pointer"
+                }`}
+              >
+                {deletingRoleId === deleteConfirmRole._id
+                  ? "Deleting..."
+                  : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-lg bg-white rounded-xl shadow-xl border border-gray-100">
+          <div className="w-full max-w-2xl bg-white rounded-xl shadow-xl border border-gray-100 max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-800">
                   Create New Role
                 </h2>
+
                 <p className="text-sm text-gray-500 mt-1">
-                  Tạo role mới để phân quyền.
+                  Tạo role mới và chọn quyền cho role.
                 </p>
               </div>
 
@@ -449,48 +820,91 @@ const Permissions = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCreateRole} className="p-6 space-y-4">
+            <form onSubmit={handleCreateRole} className="p-6 space-y-5">
               <div>
-                <label className="text-sm text-gray-600">Role name</label>
+                <label className="text-sm text-gray-600">Role name *</label>
                 <input
                   type="text"
-                  value={newRoleName}
-                  onChange={(e) => setNewRoleName(e.target.value)}
-                  placeholder="VD: Content X"
+                  name="name"
+                  value={newRoleData.name}
+                  onChange={handleCreateInputChange}
+                  placeholder="VD: editor"
                   autoFocus
                   className="w-full mt-1 px-3 py-2 border border-gray-300 rounded outline-none focus:border-primary"
+                  required
                 />
-              </div>
-
-              <div>
-                <label className="text-sm text-gray-600">
-                  Role code{" "}
-                  <span className="text-xs text-gray-400">(optional)</span>
-                </label>
-                <input
-                  type="text"
-                  value={newRoleCode}
-                  onChange={(e) => setNewRoleCode(e.target.value)}
-                  placeholder="VD: content_x"
-                  className="w-full mt-1 px-3 py-2 border border-gray-300 rounded outline-none focus:border-primary"
-                />
-
-                {roleCodePreview && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    Code sẽ lưu:{" "}
-                    <span className="text-primary">{roleCodePreview}</span>
-                  </p>
-                )}
               </div>
 
               <div>
                 <label className="text-sm text-gray-600">Description</label>
                 <textarea
-                  value={newRoleDescription}
-                  onChange={(e) => setNewRoleDescription(e.target.value)}
+                  name="description"
+                  value={newRoleData.description}
+                  onChange={handleCreateInputChange}
                   placeholder="Mô tả role này..."
                   className="w-full mt-1 px-3 py-2 border border-gray-300 rounded outline-none focus:border-primary h-24 resize-none"
                 />
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-800 mb-3">
+                  Permissions
+                </h3>
+
+                <div className="space-y-4">
+                  {permissionGroups.map((group) => (
+                    <div
+                      key={group.title}
+                      className="border border-gray-100 rounded-lg overflow-hidden"
+                    >
+                      <div className="bg-primary/5 px-4 py-3">
+                        <h4 className="font-semibold text-primary">
+                          {group.title}
+                        </h4>
+                      </div>
+
+                      <div className="divide-y divide-gray-100">
+                        {group.permissions.map((permission) => {
+                          const checked = newRoleData.permissions.includes(
+                            permission.code,
+                          );
+
+                          return (
+                            <label
+                              key={permission.code}
+                              className="flex items-start gap-4 p-4 cursor-pointer hover:bg-gray-50"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={() =>
+                                  handleToggleNewRolePermission(permission.code)
+                                }
+                                className="mt-1 scale-125 cursor-pointer"
+                              />
+
+                              <div className="flex-1">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                                  <p className="font-medium text-gray-800">
+                                    {permission.name}
+                                  </p>
+
+                                  <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded w-fit">
+                                    {permission.code}
+                                  </span>
+                                </div>
+
+                                <p className="text-sm text-gray-500 mt-1">
+                                  {permission.description}
+                                </p>
+                              </div>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
